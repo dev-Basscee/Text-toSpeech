@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# TypeScript build artifacts (compiled output is committed)
+*.js.map
+
+# Temp scripts
+make-pdf.mjs
+resize-icons.mjs
+sample.pdf
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

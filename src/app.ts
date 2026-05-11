@@ -1,0 +1,763 @@
+// =====================================================
+// LexaRead — app.ts
+// Page-by-page PDF reader with professional TTS
+// =====================================================
+
+// PDF.js is loaded via CDN <script> tag
+declare const pdfjsLib: {
+  getDocument: (src: { data: ArrayBuffer }) => { promise: Promise<PDFDoc> };
+  Util: { transform: (m1: number[], m2: number[]) => number[] };
+  GlobalWorkerOptions: { workerSrc: string };
+};
+interface PDFDoc {
+  numPages: number;
+  getPage: (n: number) => Promise<PDFPage>;
+}
+interface PDFPage {
+  getViewport: (opts: { scale: number }) => PDFViewport;
+  render: (opts: { canvasContext: CanvasRenderingContext2D; viewport: PDFViewport }) => { promise: Promise<void>; cancel: () => void };
+  getTextContent: () => Promise<PDFTextContent>;
+}
+interface PDFViewport {
+  width: number;
+  height: number;
+  scale: number;
+  transform: number[];
+}
+interface PDFTextContent {
+  items: PDFTextItem[];
+}
+interface PDFTextItem {
+  str: string;
+  transform: number[];
+  width: number;
+  height: number;
+}
+
+// ── App-level types ──────────────────────────────────
+interface TLItem {
+  rawText: string;
+  processedText: string;
+  startChar: number;
+  endChar: number;
+  el: HTMLDivElement;
+}
+
+// ── Abbreviation map ─────────────────────────────────
+const ABBREVS: Record<string, string> = {
+  Dr: 'Doctor', Mr: 'Mister', Mrs: 'Missus', Ms: 'Miss',
+  Prof: 'Professor', Sr: 'Senior', Jr: 'Junior',
+  Fig: 'Figure', vs: 'versus', etc: 'etcetera',
+  approx: 'approximately', dept: 'department',
+  avg: 'average', max: 'maximum', min: 'minimum',
+  Corp: 'Corporation', Inc: 'Incorporated', Ltd: 'Limited',
+  Jan: 'January', Feb: 'February', Mar: 'March',
+  Apr: 'April', Aug: 'August', Sep: 'September',
+  Oct: 'October', Nov: 'November', Dec: 'December',
+};
+
+// ── Text pre-processor ───────────────────────────────
+// Transforms raw PDF text so TTS sounds professional:
+//  1. ALL-CAPS words → lowercase (so "PDF" → reads as "pee dee eff", not "P-D-F")
+//  2. Symbols → words
+//  3. Abbreviations → full words
+//  4. Units → readable form
+//  5. Punctuation normalisation
+function preprocessForTTS(raw: string): string {
+  if (!raw.trim()) return '';
+  let t = raw;
+
+  // Symbols → words
+  t = t.replace(/&amp;/g, ' and ').replace(/&/g, ' and ');
+  t = t.replace(/\$/g, ' dollars ').replace(/€/g, ' euros ').replace(/£/g, ' pounds ');
+  t = t.replace(/%/g, ' percent ');
+  t = t.replace(/@/g, ' at ');
+  t = t.replace(/©/g, ' copyright ').replace(/®/g, ' registered ').replace(/™/g, '');
+  t = t.replace(/\+(?!\d)/g, ' plus ').replace(/=/g, ' equals ');
+  t = t.replace(/>/g, ' greater than ').replace(/</g, ' less than ');
+  t = t.replace(/\//g, ' slash ');
+
+  // ALL-CAPS words → lowercase so TTS reads them as words, not letters
+  // "NASA" → "nasa" (TTS: "nasa"), "PDF" → "pdf" (TTS: "pee dee eff")
+  // "THE" → "the", "INTRODUCTION" → "introduction"
+  t = t.replace(/\b([A-Z]{2,})\b/g, (m) => m.toLowerCase());
+
+  // Abbreviations with trailing dot: "Dr." → "Doctor"
+  for (const [abbr, full] of Object.entries(ABBREVS)) {
+    t = t.replace(new RegExp(`\\b${abbr}\\.`, 'g'), full + ' ');
+  }
+
+  // Common units
+  t = t.replace(/(\d+)\s*°C/g, '$1 degrees Celsius');
+  t = t.replace(/(\d+)\s*°F/g, '$1 degrees Fahrenheit');
+  t = t.replace(/(\d+)\s*(?:kg)\b/g, '$1 kilograms');
+  t = t.replace(/(\d+)\s*(?:km)\b/g, '$1 kilometers');
+  t = t.replace(/(\d+)\s*(?:cm)\b/g, '$1 centimeters');
+  t = t.replace(/(\d+)\s*(?:mm)\b/g, '$1 millimeters');
+  t = t.replace(/(\d+)\s*(?:GHz)\b/g, '$1 gigahertz');
+  t = t.replace(/(\d+)\s*(?:MHz)\b/g, '$1 megahertz');
+  t = t.replace(/(\d+)\s*(?:GB)\b/g, '$1 gigabytes');
+  t = t.replace(/(\d+)\s*(?:MB)\b/g, '$1 megabytes');
+  t = t.replace(/(\d+)\s*(?:KB)\b/g, '$1 kilobytes');
+  t = t.replace(/(\d+)\s*(?:ms)\b/g, '$1 milliseconds');
+
+  // Ordinals: "1st" "2nd" "3rd" "4th"
+  t = t.replace(/\b(\d+)st\b/g, '$1st');
+  t = t.replace(/\b(\d+)nd\b/g, '$1nd');
+  t = t.replace(/\b(\d+)rd\b/g, '$1rd');
+  t = t.replace(/\b(\d+)th\b/g, '$1th');
+
+  // Dashes → pause via comma
+  t = t.replace(/[—–]/g, ', ');
+
+  // Ellipsis normalise
+  t = t.replace(/\.{2,}/g, '. ');
+
+  // Remove URLs
+  t = t.replace(/https?:\/\/\S+/g, 'link');
+
+  // Ensure space after punctuation (e.g. "word.Next" → "word. Next")
+  t = t.replace(/([.!?,:;])([^\s\d"')\]])/g, '$1 $2');
+
+  // Strip stray bullet characters
+  t = t.replace(/^[\s\-\u2022\u2013\u2014\*]+/gm, '');
+
+  // Collapse multiple spaces
+  t = t.replace(/\s{2,}/g, ' ');
+
+  return t.trim();
+}
+
+// ── DOM refs ─────────────────────────────────────────
+function byId<T extends HTMLElement>(id: string): T {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`Element #${id} not found`);
+  return el as T;
+}
+
+const dom = {
+  sidebar:        byId('sidebar'),
+  backdrop:       byId('sidebarBackdrop'),
+  sidebarToggle:  byId('sidebarToggleBtn'),
+  sidebarCloseBtn:byId<HTMLButtonElement>('sidebarCloseBtn'),
+  dropZone:       byId('dropZone'),
+  fileInput:      byId<HTMLInputElement>('fileInput'),
+  bookInfo:       byId('bookInfo'),
+  bookName:       byId('bookName'),
+  bookPages:      byId('bookPages'),
+  thumbHeader:    byId('thumbHeader'),
+  thumbList:      byId('thumbList'),
+  themeBtn:       byId('themeBtn'),
+  themeIcon:      byId('themeIcon'),
+  themeLabel:     byId('themeLabel'),
+  pageNav:        byId('pageNav'),
+  prevPage:       byId<HTMLButtonElement>('prevPage'),
+  nextPage:       byId<HTMLButtonElement>('nextPage'),
+  pageInput:      byId<HTMLInputElement>('pageInput'),
+  totalPages:     byId('totalPages'),
+  zoomCtrl:       byId('zoomCtrl'),
+  zoomIn:         byId<HTMLButtonElement>('zoomIn'),
+  zoomOut:        byId<HTMLButtonElement>('zoomOut'),
+  zoomVal:        byId('zoomVal'),
+  fitPage:        byId<HTMLButtonElement>('fitPage'),
+  welcome:        byId('welcome'),
+  loader:         byId('loader'),
+  loaderMsg:      byId('loaderMsg'),
+  pageContainer:  byId('pageContainer'),
+  pageWrap:       byId('pageWrap'),
+  pdfCanvas:      byId<HTMLCanvasElement>('pdfCanvas'),
+  textLayer:      byId('textLayer'),
+  viewerWrap:     byId('viewerWrap'),
+  voiceSel:       byId<HTMLSelectElement>('voiceSel'),
+  playBtn:        byId<HTMLButtonElement>('playBtn'),
+  stopBtn:        byId<HTMLButtonElement>('stopBtn'),
+  skipBack:       byId<HTMLButtonElement>('skipBack'),
+  skipFwd:        byId<HTMLButtonElement>('skipFwd'),
+  spdDn:          byId<HTMLButtonElement>('spdDn'),
+  spdUp:          byId<HTMLButtonElement>('spdUp'),
+  spdVal:         byId('spdVal'),
+  pitchSlider:    byId<HTMLInputElement>('pitchSlider'),
+  autoBtn:        byId<HTMLButtonElement>('autoBtn'),
+  progFill:       byId('progFill'),
+  progLbl:        byId('progLbl'),
+  progPct:        byId('progPct'),
+  settingsToggle: byId<HTMLButtonElement>('settingsToggle'),
+  secondaryRow:   byId('settingsClose').closest('.secondary-row') as HTMLElement,
+  swipeHint:      byId('swipeHint'),
+};
+
+// ── State ─────────────────────────────────────────────
+let pdf: PDFDoc | null = null;
+let currentPage = 1;
+let totalPages  = 0;
+let scale       = 1.5;
+let bookTitle   = '';
+let renderTask: { cancel: () => void } | null = null;
+
+let items: TLItem[]    = [];
+let pageFullText       = '';
+let isSpeaking         = false;
+let isPaused           = false;
+let rate               = 1.0;
+let pitch              = 1.0;
+let voice: SpeechSynthesisVoice | null = null;
+let autoAdvance        = true;
+let currentItemIdx     = -1;
+
+// ── Toast ─────────────────────────────────────────────
+function toast(msg: string, type: 'ok' | 'err' | 'info' = 'info', ms = 2600): void {
+  let wrap = document.querySelector<HTMLDivElement>('.toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'toast-wrap';
+    document.body.appendChild(wrap);
+  }
+  const t = document.createElement('div');
+  t.className = 'toast';
+  const icon = type === 'ok' ? '✅' : type === 'err' ? '❌' : 'ℹ️';
+  t.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  wrap.appendChild(t);
+  setTimeout(() => {
+    t.style.cssText += 'opacity:0;transform:translateX(16px);transition:.25s ease';
+    setTimeout(() => t.remove(), 270);
+  }, ms);
+}
+
+// ── Theme ─────────────────────────────────────────────
+function applyTheme(t: string): void {
+  document.body.classList.toggle('light', t === 'light');
+  dom.themeIcon.textContent  = t === 'light' ? '☀️' : '🌙';
+  dom.themeLabel.textContent = t === 'light' ? 'Light Mode' : 'Dark Mode';
+  localStorage.setItem('lexa-theme', t);
+}
+applyTheme(localStorage.getItem('lexa-theme') ?? 'dark');
+dom.themeBtn.addEventListener('click', () =>
+  applyTheme(document.body.classList.contains('light') ? 'dark' : 'light')
+);
+
+// ── Sidebar ───────────────────────────────────────────
+const DESKTOP_BP = 900;
+
+function openSidebar(): void {
+  dom.sidebar.classList.add('open');
+  if (window.innerWidth < DESKTOP_BP) {
+    dom.backdrop.classList.add('visible');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeSidebar(): void {
+  dom.sidebar.classList.remove('open');
+  dom.backdrop.classList.remove('visible');
+  document.body.style.overflow = '';
+}
+
+function toggleSidebar(): void {
+  if (dom.sidebar.classList.contains('open')) closeSidebar();
+  else openSidebar();
+}
+
+// On desktop, sidebar starts open; on mobile, starts closed
+if (window.innerWidth >= DESKTOP_BP) openSidebar();
+
+dom.sidebarToggle.addEventListener('click', toggleSidebar);
+dom.sidebarCloseBtn.addEventListener('click', closeSidebar);
+dom.backdrop.addEventListener('click', closeSidebar);
+
+// Close sidebar when a thumbnail is tapped on mobile
+dom.thumbList.addEventListener('click', () => {
+  if (window.innerWidth < DESKTOP_BP) closeSidebar();
+});
+
+window.addEventListener('resize', () => {
+  if (window.innerWidth >= DESKTOP_BP) {
+    openSidebar();
+    dom.backdrop.classList.remove('visible');
+    document.body.style.overflow = '';
+  }
+});
+
+// ── Settings panel (voice + pitch) toggle for mobile ──
+dom.settingsToggle.addEventListener('click', () => {
+  const hidden = dom.secondaryRow.classList.toggle('hidden');
+  dom.settingsToggle.classList.toggle('active', !hidden);
+});
+// Hide secondary row on mobile by default
+if (window.innerWidth < 640) dom.secondaryRow.classList.add('hidden');
+
+byId('settingsClose').addEventListener('click', () => {
+  dom.secondaryRow.classList.add('hidden');
+  dom.settingsToggle.classList.remove('active');
+});
+
+// ── Voices ────────────────────────────────────────────
+function loadVoices(): void {
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return;
+  dom.voiceSel.innerHTML = '';
+  voices.forEach((v, i) => {
+    const o = document.createElement('option');
+    o.value = String(i);
+    o.textContent = `${v.name} (${v.lang})`;
+    dom.voiceSel.appendChild(o);
+  });
+  const pref = voices.findIndex(v =>
+    v.lang.startsWith('en') &&
+    (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Premium') || v.name.includes('Samantha'))
+  );
+  dom.voiceSel.value = String(pref >= 0 ? pref : 0);
+  voice = voices[Number(dom.voiceSel.value)];
+}
+speechSynthesis.onvoiceschanged = loadVoices;
+loadVoices();
+
+dom.voiceSel.addEventListener('change', () => {
+  voice = speechSynthesis.getVoices()[Number(dom.voiceSel.value)];
+  if (isSpeaking) restartTTS();
+});
+
+// ── File upload ────────────────────────────────────────
+dom.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dom.dropZone.classList.add('drag-over'); });
+dom.dropZone.addEventListener('dragleave', () => dom.dropZone.classList.remove('drag-over'));
+dom.dropZone.addEventListener('drop', (e) => {
+  e.preventDefault(); dom.dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer?.files[0]; if (f) openFile(f);
+});
+dom.fileInput.addEventListener('change', () => { const f = dom.fileInput.files?.[0]; if (f) openFile(f); });
+
+async function openFile(file: File): Promise<void> {
+  if (!file.name.toLowerCase().endsWith('.pdf')) { toast('Only PDF files supported.', 'err'); return; }
+  stopTTS();
+  showLoader('Loading PDF…');
+  bookTitle = file.name.replace(/\.pdf$/i, '');
+  try {
+    const buf = await file.arrayBuffer();
+    pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    totalPages  = pdf.numPages;
+    currentPage = 1;
+    dom.bookName.textContent  = bookTitle;
+    dom.bookPages.textContent = `${totalPages} page${totalPages !== 1 ? 's' : ''}`;
+    dom.bookInfo.style.display   = '';
+    dom.thumbHeader.style.display = '';
+    dom.pageNav.style.display    = '';
+    dom.zoomCtrl.style.display   = '';
+    dom.totalPages.textContent   = String(totalPages);
+    dom.pageInput.max            = String(totalPages);
+    enableControls(true);
+    generateThumbnails();
+    await renderPage(1);
+    toast(`"${bookTitle}" loaded!`, 'ok');
+    // Show swipe hint briefly on mobile
+    if (window.innerWidth < 640) {
+      dom.swipeHint.style.display = '';
+      setTimeout(() => { dom.swipeHint.style.display = 'none'; }, 3500);
+    }
+  } catch (err) {
+    toast('Failed to open PDF: ' + (err as Error).message, 'err');
+    showWelcome();
+  }
+}
+
+// ── Thumbnails ──────────────────────────────────────────
+async function generateThumbnails(): Promise<void> {
+  if (!pdf) return;
+  dom.thumbList.innerHTML = '';
+  for (let p = 1; p <= totalPages; p++) {
+    const item = document.createElement('div');
+    item.className = `thumb-item${p === 1 ? ' active' : ''}`;
+    item.dataset['page'] = String(p);
+    item.innerHTML = `<span class="thumb-num">${p}</span>`;
+    item.addEventListener('click', () => goToPage(p));
+    dom.thumbList.appendChild(item);
+    // Render in background
+    (async () => {
+      try {
+        const page = await pdf!.getPage(p);
+        const vp   = page.getViewport({ scale: 0.18 });
+        const c    = document.createElement('canvas');
+        c.width = vp.width; c.height = vp.height;
+        await page.render({ canvasContext: c.getContext('2d')!, viewport: vp }).promise;
+        item.insertBefore(c, item.querySelector('.thumb-num'));
+      } catch { /* ignore */ }
+    })();
+    if (p % 5 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+}
+
+function updateActiveThumbnail(p: number): void {
+  dom.thumbList.querySelectorAll<HTMLDivElement>('.thumb-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset['page'] ?? '0') === p);
+  });
+  dom.thumbList.querySelector('.thumb-item.active')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── PDF Rendering ───────────────────────────────────────
+async function renderPage(pageNum: number): Promise<void> {
+  if (!pdf) return;
+  pageNum = Math.max(1, Math.min(pageNum, totalPages));
+  currentPage = pageNum;
+  showLoader('Rendering page…');
+  if (renderTask) { try { renderTask.cancel(); } catch { /* ignore */ } }
+  // On mobile, auto-fit scale to viewer width before rendering
+  if (window.innerWidth < 640) {
+    try {
+      const pg = await pdf.getPage(pageNum);
+      const nv = pg.getViewport({ scale: 1 });
+      const tw = dom.viewerWrap.clientWidth - 24;
+      if (nv.width > 0) scale = tw / nv.width;
+    } catch { /* ignore */ }
+  }
+  try {
+    const page     = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale });
+    const ctx      = dom.pdfCanvas.getContext('2d')!;
+    dom.pdfCanvas.width  = viewport.width;
+    dom.pdfCanvas.height = viewport.height;
+    dom.textLayer.style.width  = viewport.width  + 'px';
+    dom.textLayer.style.height = viewport.height + 'px';
+    const task = page.render({ canvasContext: ctx, viewport });
+    renderTask = task;
+    await task.promise;
+    const textContent = await page.getTextContent();
+    buildTextLayer(textContent, viewport);
+    dom.pageInput.value = String(pageNum);
+    dom.prevPage.disabled = pageNum <= 1;
+    dom.nextPage.disabled = pageNum >= totalPages;
+    updateActiveThumbnail(pageNum);
+    updateProgress();
+    showPage();
+    dom.viewerWrap.scrollTop = 0;
+  } catch (err) {
+    if ((err as Error)?.name === 'RenderingCancelledException') return;
+    toast('Render error: ' + (err as Error).message, 'err');
+    showWelcome();
+  }
+}
+
+// ── Text Overlay Layer ──────────────────────────────────
+function buildTextLayer(content: PDFTextContent, viewport: PDFViewport): void {
+  dom.textLayer.innerHTML = '';
+  items = [];
+  pageFullText = '';
+  currentItemIdx = -1;
+
+  content.items.forEach((item) => {
+    if (!item.str.trim()) return;
+
+    // Map PDF coordinates → screen coordinates
+    const tx     = pdfjsLib.Util.transform(viewport.transform, item.transform);
+    const fontH  = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
+    const left   = tx[4];
+    const top    = tx[5] - fontH;
+    const width  = Math.abs(item.width * viewport.scale);
+    const height = fontH * 1.2;
+    if (top < -fontH || left < -width) return;
+
+    const div = document.createElement('div');
+    div.className = 'tl-item';
+    div.style.cssText = `left:${left.toFixed(1)}px;top:${top.toFixed(1)}px;width:${width.toFixed(1)}px;height:${height.toFixed(1)}px;font-size:${fontH.toFixed(1)}px`;
+
+    const processed  = preprocessForTTS(item.str);
+    const startChar  = pageFullText.length;
+    pageFullText    += processed + ' ';
+    const endChar    = pageFullText.length;
+
+    const idx = items.length;
+    div.addEventListener('click', () => jumpToItem(idx));
+    items.push({ rawText: item.str, processedText: processed, startChar, endChar, el: div });
+    dom.textLayer.appendChild(div);
+  });
+}
+
+// ── TTS Engine ──────────────────────────────────────────
+function startTTS(): void {
+  if (!pdf || !pageFullText.trim()) return;
+  speechSynthesis.cancel();
+  const utt   = new SpeechSynthesisUtterance(pageFullText);
+  utt.rate    = rate;
+  utt.pitch   = pitch;
+  if (voice) utt.voice = voice;
+
+  // Map character boundary → text overlay item → amber highlight
+  utt.onboundary = (e: SpeechSynthesisEvent) => {
+    if (e.name !== 'word') return;
+    highlightAt(e.charIndex);
+  };
+
+  utt.onend = () => {
+    if (!isSpeaking) return;
+    clearHighlights();
+    if (autoAdvance && currentPage < totalPages) {
+      renderPage(currentPage + 1).then(() => { if (isSpeaking) startTTS(); });
+    } else {
+      isSpeaking = false; isPaused = false;
+      setPlayState(false);
+      if (currentPage >= totalPages) toast('🎉 Finished!', 'ok');
+    }
+  };
+
+  utt.onerror = (e: SpeechSynthesisErrorEvent) => {
+    if (e.error === 'interrupted' || e.error === 'canceled') return;
+    console.error('TTS error:', e.error);
+  };
+
+  isSpeaking = true; isPaused = false;
+  speechSynthesis.speak(utt);
+  setPlayState(true);
+}
+
+function pauseTTS(): void  { speechSynthesis.pause();  isPaused = true;  setPlayState(false); }
+function resumeTTS(): void { speechSynthesis.resume(); isPaused = false; setPlayState(true);  }
+function stopTTS(): void {
+  speechSynthesis.cancel();
+  isSpeaking = false; isPaused = false;
+  setPlayState(false); clearHighlights();
+}
+function restartTTS(): void { stopTTS(); setTimeout(startTTS, 60); }
+
+// ── Highlight ───────────────────────────────────────────
+function highlightAt(charIdx: number): void {
+  // Binary search the item whose [startChar, endChar) contains charIdx
+  let lo = 0, hi = items.length - 1, found = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const it  = items[mid];
+    if (charIdx >= it.startChar && charIdx < it.endChar) { found = mid; break; }
+    else if (charIdx < it.startChar) hi = mid - 1;
+    else lo = mid + 1;
+  }
+  if (found < 0 || found === currentItemIdx) return;
+  if (currentItemIdx >= 0) {
+    items[currentItemIdx].el.classList.remove('hl-active');
+    items[currentItemIdx].el.classList.add('hl-read');
+  }
+  currentItemIdx = found;
+  items[found].el.classList.add('hl-active');
+  items[found].el.classList.remove('hl-read');
+  items[found].el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clearHighlights(): void {
+  currentItemIdx = -1;
+  items.forEach(it => it.el.classList.remove('hl-active', 'hl-read'));
+}
+
+function jumpToItem(idx: number): void {
+  stopTTS();
+  // Rebuild pageFullText starting from this item
+  let c = 0;
+  items.forEach((it, i) => {
+    if (i < idx) { it.el.classList.add('hl-read'); return; }
+    it.startChar = c; c += it.processedText.length + 1; it.endChar = c;
+  });
+  pageFullText = items.slice(idx).map(it => it.processedText).join(' ') + ' ';
+  setTimeout(startTTS, 60);
+}
+
+// ── Player controls ─────────────────────────────────────
+dom.playBtn.addEventListener('click', () => {
+  if (!isSpeaking && !isPaused) startTTS();
+  else if (isSpeaking && !isPaused) pauseTTS();
+  else resumeTTS();
+});
+
+dom.stopBtn.addEventListener('click', () => {
+  stopTTS();
+  // Reset item positions for fresh read
+  let c = 0;
+  items.forEach(it => { it.startChar = c; c += it.processedText.length + 1; it.endChar = c; });
+  pageFullText = items.map(it => it.processedText).join(' ') + ' ';
+});
+
+dom.skipBack.addEventListener('click', () => jumpToItem(Math.max(0, currentItemIdx - 6)));
+dom.skipFwd.addEventListener('click',  () => jumpToItem(Math.min(items.length - 1, Math.max(0, currentItemIdx + 6))));
+
+function setPlayState(playing: boolean): void {
+  (dom.playBtn.querySelector('.ico-play') as HTMLElement).style.display  = playing ? 'none' : '';
+  (dom.playBtn.querySelector('.ico-pause') as HTMLElement).style.display = playing ? '' : 'none';
+}
+
+// ── Speed & Pitch ───────────────────────────────────────
+function setRate(r: number): void {
+  rate = Math.max(0.25, Math.min(4, Math.round(r * 100) / 100));
+  dom.spdVal.textContent = rate.toFixed(1) + '×';
+  if (isSpeaking) restartTTS();
+}
+dom.spdDn.addEventListener('click', () => setRate(rate - 0.25));
+dom.spdUp.addEventListener('click', () => setRate(rate + 0.25));
+dom.pitchSlider.addEventListener('input', () => { pitch = parseFloat(dom.pitchSlider.value); if (isSpeaking) restartTTS(); });
+
+// Auto-advance
+dom.autoBtn.addEventListener('click', () => {
+  autoAdvance = !autoAdvance;
+  dom.autoBtn.dataset['on'] = String(autoAdvance);
+  toast(`Auto-advance ${autoAdvance ? 'ON' : 'OFF'}`, 'info', 1400);
+});
+
+// ── Page navigation ─────────────────────────────────────
+async function goToPage(p: number): Promise<void> {
+  if (!pdf || p === currentPage) return;
+  const was = isSpeaking && !isPaused;
+  stopTTS();
+  await renderPage(p);
+  if (was) startTTS();
+}
+dom.prevPage.addEventListener('click', () => goToPage(currentPage - 1));
+dom.nextPage.addEventListener('click', () => goToPage(currentPage + 1));
+dom.pageInput.addEventListener('change', () => {
+  const p = parseInt(dom.pageInput.value, 10);
+  if (!isNaN(p)) goToPage(Math.max(1, Math.min(p, totalPages)));
+});
+
+// ── Zoom ────────────────────────────────────────────────
+function setScale(s: number): void {
+  scale = Math.max(0.5, Math.min(3.5, Math.round(s * 10) / 10));
+  dom.zoomVal.textContent = Math.round((scale / 1.5) * 100) + '%';
+  const was = isSpeaking && !isPaused;
+  stopTTS();
+  renderPage(currentPage).then(() => { if (was) startTTS(); });
+}
+dom.zoomIn.addEventListener('click',  () => setScale(scale + 0.25));
+dom.zoomOut.addEventListener('click', () => setScale(scale - 0.25));
+dom.fitPage.addEventListener('click', () => {
+  if (!pdf) return;
+  pdf.getPage(currentPage).then(page => {
+    const vp = page.getViewport({ scale: 1 });
+    setScale((dom.viewerWrap.clientWidth - 80) / vp.width);
+  });
+});
+
+// ── Progress ────────────────────────────────────────────
+function updateProgress(): void {
+  const pct = totalPages > 0 ? ((currentPage - 1) / totalPages) * 100 : 0;
+  dom.progFill.style.width = pct + '%';
+  dom.progLbl.textContent  = `Page ${currentPage} of ${totalPages}`;
+  dom.progPct.textContent  = Math.round(pct) + '%';
+}
+
+// ── UI helpers ──────────────────────────────────────────
+function showWelcome(): void { dom.welcome.style.display=''; dom.loader.style.display='none'; dom.pageContainer.style.display='none'; }
+function showLoader(msg: string): void { dom.loaderMsg.textContent=msg; dom.welcome.style.display='none'; dom.loader.style.display=''; dom.pageContainer.style.display='none'; }
+function showPage(): void { dom.welcome.style.display='none'; dom.loader.style.display='none'; dom.pageContainer.style.display=''; }
+function enableControls(on: boolean): void {
+  dom.playBtn.disabled  = !on;
+  dom.stopBtn.disabled  = !on;
+  dom.skipBack.disabled = !on;
+  dom.skipFwd.disabled  = !on;
+}
+
+// ── Keyboard shortcuts ──────────────────────────────────
+document.addEventListener('keydown', (e: KeyboardEvent) => {
+  if (['INPUT','SELECT','TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+  switch (e.code) {
+    case 'Space':      e.preventDefault(); dom.playBtn.click(); break;
+    case 'ArrowRight': if (e.shiftKey) goToPage(currentPage + 1); else dom.skipFwd.click(); break;
+    case 'ArrowLeft':  if (e.shiftKey) goToPage(currentPage - 1); else dom.skipBack.click(); break;
+    case 'ArrowUp':    e.preventDefault(); setRate(rate + 0.25); break;
+    case 'ArrowDown':  e.preventDefault(); setRate(rate - 0.25); break;
+  }
+});
+
+// ── Init ────────────────────────────────────────────────
+showWelcome();
+enableControls(false);
+dom.zoomVal.textContent = '100%';
+
+// ── Touch swipe gestures ─────────────────────────────────
+(function initSwipe(): void {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  const SWIPE_THRESHOLD = 60; // px
+
+  dom.viewerWrap.addEventListener('touchstart', (e: TouchEvent) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  dom.viewerWrap.addEventListener('touchend', (e: TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+
+    // Only count horizontal swipe (not a vertical scroll)
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dy) > Math.abs(dx)) return;
+
+    if (dx < 0) {
+      // Swipe left → next page
+      goToPage(currentPage + 1);
+    } else {
+      // Swipe right → previous page
+      goToPage(currentPage - 1);
+    }
+  }, { passive: true });
+})();
+
+// ═══════════════════════════════════════════════════
+// PWA — Service Worker + Install Prompt
+// ═══════════════════════════════════════════════════
+
+// ── Register Service Worker ────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+
+      // Check for updates
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdateBanner(newWorker);
+          }
+        });
+      });
+
+    }).catch(err => console.warn('SW registration failed:', err));
+  });
+}
+
+// ── Install Prompt (Android/Chrome/Edge) ───────────
+let deferredInstallPrompt: Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> } | null = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e as typeof deferredInstallPrompt;
+  // Show install banner (only if not already installed / dismissed)
+  if (!localStorage.getItem('lexa-install-dismissed')) {
+    const banner = document.getElementById('installBanner')!;
+    banner.style.display = '';
+  }
+});
+
+document.getElementById('installBtn')?.addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  await deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  if (outcome === 'accepted') toast('LexaRead installed! 🎉', 'ok', 3000);
+  deferredInstallPrompt = null;
+  document.getElementById('installBanner')!.style.display = 'none';
+});
+
+document.getElementById('installDismiss')?.addEventListener('click', () => {
+  document.getElementById('installBanner')!.style.display = 'none';
+  localStorage.setItem('lexa-install-dismissed', '1');
+});
+
+// ── Update Banner ──────────────────────────────────
+function showUpdateBanner(worker: ServiceWorker): void {
+  const banner = document.getElementById('updateBanner')!;
+  banner.style.display = '';
+  document.getElementById('updateBtn')?.addEventListener('click', () => {
+    worker.postMessage({ type: 'SKIP_WAITING' });
+    banner.style.display = 'none';
+    window.location.reload();
+  });
+  document.getElementById('updateDismiss')?.addEventListener('click', () => {
+    banner.style.display = 'none';
+  });
+}
+
+// ── App installed: hide banner ─────────────────────
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner')!.style.display = 'none';
+  toast('LexaRead added to home screen! 🎉', 'ok', 3000);
+});

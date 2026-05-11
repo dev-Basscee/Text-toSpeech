@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <title>LexaRead — Course Reader</title>
+  <meta name="description" content="Upload your course PDF and have it read aloud page by page with line highlighting."/>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#7c5cfc"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+
+  <!-- iOS PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="LexaRead"/>
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
+  <link rel="apple-touch-startup-image" href="icons/icon-512.png"/>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png"/>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- ══ PWA Install Banner ══ -->
+<div class="install-banner" id="installBanner" style="display:none">
+  <div class="install-banner-inner">
+    <img src="icons/icon-192.png" alt="LexaRead" class="install-icon"/>
+    <div class="install-text">
+      <strong>Install LexaRead</strong>
+      <span>Add to your home screen for the best experience</span>
+    </div>
+    <button class="install-yes" id="installBtn">Install</button>
+    <button class="install-no" id="installDismiss">✕</button>
+  </div>
+</div>
+
+<!-- ══ Update Banner ══ -->
+<div class="update-banner" id="updateBanner" style="display:none">
+  <span>🔄 New version available</span>
+  <button id="updateBtn">Update</button>
+  <button id="updateDismiss">✕</button>
+</div>
+
+<!-- Sidebar backdrop (mobile) -->
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-top">
+    <div class="sidebar-header-row">
+      <div class="logo">
+        <span class="logo-icon">📖</span>
+        <span class="logo-text">LexaRead</span>
+      </div>
+      <button class="sidebar-close-btn" id="sidebarCloseBtn" title="Close menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Upload -->
+    <div class="upload-area" id="uploadArea">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <p class="drop-title">Drop PDF here</p>
+        <label class="btn-browse" for="fileInput">Browse Files</label>
+        <input type="file" id="fileInput" accept=".pdf" hidden/>
+      </div>
+    </div>
+
+    <!-- Book info -->
+    <div class="book-info" id="bookInfo" style="display:none">
+      <div class="book-icon">📄</div>
+      <div class="book-details">
+        <div class="book-name" id="bookName">—</div>
+        <div class="book-pages" id="bookPages">0 pages</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page Thumbnails -->
+  <div class="thumb-header" id="thumbHeader" style="display:none">Pages</div>
+  <div class="thumb-list" id="thumbList"></div>
+
+  <!-- Footer -->
+  <div class="sidebar-footer">
+    <button class="theme-btn" id="themeBtn">
+      <span id="themeIcon">🌙</span> <span id="themeLabel">Dark Mode</span>
+    </button>
+  </div>
+</aside>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<main class="main">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="icon-btn hamburger" id="sidebarToggleBtn" title="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <!-- Mobile: logo shown in topbar when sidebar is hidden -->
+      <span class="topbar-logo">LexaRead</span>
+    </div>
+
+    <div class="page-nav" id="pageNav" style="display:none">
+      <button class="nav-btn" id="prevPage" title="Previous page">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="page-indicator">
+        <input type="number" id="pageInput" class="page-input" value="1" min="1"/>
+        <span class="page-sep">/ <span id="totalPages">1</span></span>
+      </span>
+      <button class="nav-btn" id="nextPage" title="Next page">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
+    <div class="topbar-right">
+      <div class="zoom-ctrl" id="zoomCtrl" style="display:none">
+        <button class="icon-btn" id="zoomOut" title="Zoom out">−</button>
+        <span class="zoom-val" id="zoomVal">100%</span>
+        <button class="icon-btn" id="zoomIn" title="Zoom in">+</button>
+        <button class="icon-btn fit-btn" id="fitPage" title="Fit to width">⊡</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Viewer -->
+  <div class="viewer-wrap" id="viewerWrap">
+
+    <!-- Swipe hint (mobile only, shown briefly) -->
+    <div class="swipe-hint" id="swipeHint" style="display:none">
+      <span>← Swipe to change pages →</span>
+    </div>
+
+    <!-- Welcome -->
+    <div class="welcome" id="welcome">
+      <div class="welcome-glow"></div>
+      <div class="welcome-body">
+        <div class="w-icon">🎓</div>
+        <h1>Upload Your Course Material</h1>
+        <p>Drop a PDF in the sidebar — LexaRead renders it page by page and reads it aloud with live highlighting.</p>
+        <div class="w-pills">
+          <span>📄 Page-by-Page</span>
+          <span>🔆 Live Highlight</span>
+          <span>🎙️ Natural Voices</span>
+          <span>⚡ Auto Advance</span>
+        </div>
+        <!-- Mobile upload CTA -->
+        <label class="btn-browse mobile-upload-cta" for="fileInput">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Upload PDF
+        </label>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loader" id="loader" style="display:none">
+      <div class="spinner"></div>
+      <p id="loaderMsg">Loading PDF…</p>
+    </div>
+
+    <!-- PDF Page viewer -->
+    <div class="page-container" id="pageContainer" style="display:none">
+      <div class="page-wrap" id="pageWrap">
+        <canvas id="pdfCanvas"></canvas>
+        <div class="text-layer" id="textLayer"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════ PLAYER BAR ══════════ -->
+  <div class="player" id="player">
+
+    <!-- Progress row -->
+    <div class="progress-row">
+      <span class="prog-lbl" id="progLbl">Page 0 of 0</span>
+      <div class="prog-track">
+        <div class="prog-fill" id="progFill" style="width:0%"></div>
+      </div>
+      <span class="prog-pct" id="progPct">0%</span>
+    </div>
+
+    <!-- Main controls row -->
+    <div class="controls-row">
+      <button class="ctrl-btn" id="skipBack" disabled title="Back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+        </svg>
+      </button>
+
+      <button class="play-btn" id="playBtn" disabled>
+        <svg class="ico-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <svg class="ico-pause" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      </button>
+
+      <button class="ctrl-btn" id="stopBtn" disabled title="Stop">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      </button>
+
+      <button class="ctrl-btn" id="skipFwd" disabled title="Forward">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-4.5"/>
+        </svg>
+      </button>
+
+      <div class="speed-box">
+        <button class="spd-btn" id="spdDn">−</button>
+        <span class="spd-val" id="spdVal">1.0×</span>
+        <button class="spd-btn" id="spdUp">+</button>
+      </div>
+
+      <button class="auto-btn" id="autoBtn" data-on="true">Auto ▶</button>
+    </div>
+
+    <!-- Secondary row (voice + pitch — hidden on mobile by default, revealed via toggle) -->
+    <div class="secondary-row">
+      <select class="voice-sel" id="voiceSel" title="Voice"><option>Loading…</option></select>
+      <label class="pitch-box" title="Pitch">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <input type="range" id="pitchSlider" min="0.5" max="2" step="0.1" value="1" class="pitch-range"/>
+      </label>
+      <button class="icon-btn settings-close" id="settingsClose">✕</button>
+    </div>
+
+    <!-- Mobile: settings toggle -->
+    <button class="settings-toggle" id="settingsToggle" title="Voice settings">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07M4.93 4.93a10 10 0 0 0 0 14.14M8.46 8.46a5 5 0 0 0 0 7.07"/>
+      </svg>
+    </button>
+
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
+<script src="app.js"></script>
+</body>
+</html>

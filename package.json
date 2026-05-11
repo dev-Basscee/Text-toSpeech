@@ -1,0 +1,13 @@
+{
+  "name": "lexaread",
+  "version": "1.0.0",
+  "description": "TTS Course PDF Reader",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5",
+    "typescript": "^5.4.5"
+  }
+}
