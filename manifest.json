@@ -1,67 +1,31 @@
 {
-  "name": "LexaRead — Course Reader",
+  "name": "LexaRead",
   "short_name": "LexaRead",
   "description": "Upload your course PDFs and have them read aloud page by page with live text highlighting.",
   "start_url": "/",
   "id": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "background_color": "#0d0d14",
   "theme_color": "#7c5cfc",
-  "orientation": "natural",
-  "lang": "en",
-  "categories": ["education", "productivity", "utilities"],
+  "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/icon-maskable.png",
+      "src": "/icons/icon-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "icons/apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any"
     }
-  ],
-  "screenshots": [
-    {
-      "src": "icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "LexaRead Desktop"
-    },
-    {
-      "src": "icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "LexaRead Mobile"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Open Reader",
-      "short_name": "Reader",
-      "description": "Open the PDF reader",
-      "url": "/",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
-    }
-  ],
-  "prefer_related_applications": false,
-  "scope": "/"
+  ]
 }

@@ -6,7 +6,7 @@
 //   • PDF files → Network only (too large to cache)
 // =====================================================
 
-const CACHE_NAME    = 'lexaread-v3';
+const CACHE_NAME    = 'lexaread-v5';
 const CDN_CACHE     = 'lexaread-cdn-v1';
 
 const SHELL_ASSETS = [
@@ -73,7 +73,7 @@ self.addEventListener('fetch', (event) => {
 
 // ── Cache strategies ──────────────────────────────────
 async function cacheFirst(request, cacheName) {
-  const cached = await caches.match(request);
+  const cached = await caches.match(request, { ignoreSearch: true });
   if (cached) return cached;
   try {
     const response = await fetch(request);
@@ -84,7 +84,7 @@ async function cacheFirst(request, cacheName) {
     return response;
   } catch {
     // Offline fallback: return the cached root page
-    return caches.match('/') || new Response('LexaRead is offline. Please reconnect.', {
+    return caches.match('/', { ignoreSearch: true }) || new Response('LexaRead is offline. Please reconnect.', {
       status: 503,
       headers: { 'Content-Type': 'text/plain' }
     });
