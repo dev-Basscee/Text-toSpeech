@@ -433,14 +433,17 @@ body{
 }
 
 .voice-sel{
-  flex:1;background:var(--glass);border:1px solid var(--border);border-radius:8px;
-  color:var(--text2);font-size:13px;font-weight:500;padding:8px 12px;cursor:pointer;
+  background:var(--glass);border:1px solid var(--border);border-radius:8px;
+  color:var(--text2);font-size:12px;font-weight:500;padding:6px 24px 6px 10px;cursor:pointer;
   outline:none;font-family:var(--font);
   transition:border-color var(--trans), background var(--trans);
   -webkit-appearance:none;
-  min-width:0;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238e8aae' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  max-width: 160px;
 }
-.voice-sel:focus{border-color:var(--border-a); background:var(--glass-h);}
+.voice-sel:focus{border-color:var(--border-a); background-color:var(--glass-h);}
 
 .pitch-box{
   display:flex;align-items:center;gap:7px;
