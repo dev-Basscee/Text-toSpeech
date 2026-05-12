@@ -235,22 +235,14 @@
       <button class="auto-btn" id="autoBtn" data-on="true">Auto ▶</button>
     </div>
 
-    <!-- Secondary row (voice + pitch — hidden on mobile by default, revealed via toggle) -->
+    <!-- Secondary row (voice + pitch) -->
     <div class="secondary-row">
       <select class="voice-sel" id="voiceSel" title="Voice"><option>Loading…</option></select>
       <label class="pitch-box" title="Pitch">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         <input type="range" id="pitchSlider" min="0.5" max="2" step="0.1" value="1" class="pitch-range"/>
       </label>
-      <button class="icon-btn settings-close" id="settingsClose">✕</button>
     </div>
-
-    <!-- Mobile: settings toggle -->
-    <button class="settings-toggle" id="settingsToggle" title="Voice settings">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07M4.93 4.93a10 10 0 0 0 0 14.14M8.46 8.46a5 5 0 0 0 0 7.07"/>
-      </svg>
-    </button>
 
   </div>
 </main>

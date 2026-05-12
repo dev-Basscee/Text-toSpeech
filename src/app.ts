@@ -181,8 +181,6 @@ const dom = {
   progFill:       byId('progFill'),
   progLbl:        byId('progLbl'),
   progPct:        byId('progPct'),
-  settingsToggle: byId<HTMLButtonElement>('settingsToggle'),
-  secondaryRow:   byId('settingsClose').closest('.secondary-row') as HTMLElement,
   swipeHint:      byId('swipeHint'),
 };
 
@@ -203,6 +201,31 @@ let pitch              = 1.0;
 let voice: SpeechSynthesisVoice | null = null;
 let autoAdvance        = true;
 let currentItemIdx     = -1;
+let ttsKeepAlive: ReturnType<typeof setInterval> | null = null;
+let wakeLock: any = null;
+
+// ── Wake Lock ─────────────────────────────────────────
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await (navigator as any).wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch (err) {
+    console.warn('Wake lock failed:', err);
+  }
+}
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release().catch(() => {});
+    wakeLock = null;
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && isSpeaking && !isPaused) {
+    requestWakeLock();
+  }
+});
 
 // ── Toast ─────────────────────────────────────────────
 function toast(msg: string, type: 'ok' | 'err' | 'info' = 'info', ms = 2600): void {
@@ -275,19 +298,6 @@ window.addEventListener('resize', () => {
     dom.backdrop.classList.remove('visible');
     document.body.style.overflow = '';
   }
-});
-
-// ── Settings panel (voice + pitch) toggle for mobile ──
-dom.settingsToggle.addEventListener('click', () => {
-  const hidden = dom.secondaryRow.classList.toggle('hidden');
-  dom.settingsToggle.classList.toggle('active', !hidden);
-});
-// Hide secondary row on mobile by default
-if (window.innerWidth < 640) dom.secondaryRow.classList.add('hidden');
-
-byId('settingsClose').addEventListener('click', () => {
-  dom.secondaryRow.classList.add('hidden');
-  dom.settingsToggle.classList.remove('active');
 });
 
 // ── Voices ────────────────────────────────────────────

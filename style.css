@@ -430,24 +430,22 @@ body{
 /* Secondary row (voice + pitch) */
 .secondary-row{
   display:flex;align-items:center;gap:8px;
-  animation:fade-up .2s ease;
 }
-.secondary-row.hidden{display:none}
 
 .voice-sel{
   flex:1;background:var(--glass);border:1px solid var(--border);border-radius:8px;
-  color:var(--text2);font-size:12px;padding:6px 10px;cursor:pointer;
+  color:var(--text2);font-size:13px;font-weight:500;padding:8px 12px;cursor:pointer;
   outline:none;font-family:var(--font);
-  transition:border-color var(--trans);
+  transition:border-color var(--trans), background var(--trans);
   -webkit-appearance:none;
   min-width:0;
 }
-.voice-sel:focus{border-color:var(--border-a)}
+.voice-sel:focus{border-color:var(--border-a); background:var(--glass-h);}
 
 .pitch-box{
   display:flex;align-items:center;gap:7px;
   background:var(--glass);border:1px solid var(--border);border-radius:8px;
-  padding:6px 10px;color:var(--text2);cursor:pointer;flex-shrink:0;
+  padding:8px 12px;color:var(--text2);cursor:pointer;flex-shrink:0;
 }
 .pitch-range{
   -webkit-appearance:none;width:70px;height:3px;
@@ -458,25 +456,9 @@ body{
   border-radius:50%;background:var(--accent);
   box-shadow:0 0 6px var(--accent-glow);cursor:pointer;
 }
-.settings-close{font-size:13px;padding:4px 8px;flex-shrink:0}
 
-/* Settings toggle (mic icon button) — floats at top-right of player */
-.settings-toggle{
-  position:absolute;top:10px;right:14px;
-  background:var(--glass);border:1px solid var(--border);border-radius:8px;
-  color:var(--text2);cursor:pointer;padding:5px 7px;
-  display:flex;align-items:center;
-  transition:background var(--trans),color var(--trans),border-color var(--trans);
-  -webkit-tap-highlight-color:transparent;
-}
-.settings-toggle:hover{background:var(--glass-h);color:var(--text);border-color:var(--border-a)}
-.settings-toggle.active{background:rgba(124,92,252,.15);border-color:var(--border-a);color:var(--accent)}
-
-/* ── Desktop: secondary row always visible, no toggle ── */
+/* ── Desktop adjustments ── */
 @media(min-width:640px){
-  .settings-toggle{display:none}
-  .secondary-row{display:flex !important}
-  .secondary-row .settings-close{display:none}
   .player{padding:10px 20px 14px}
   .controls-row{gap:12px}
   .play-btn{width:54px;height:54px}
@@ -490,12 +472,11 @@ body{
 /* ── Mobile-specific adjustments ── */
 @media(max-width:639px){
   :root{--topbar-h:48px}
-  .player{padding:8px 12px 10px;gap:7px}
+  .player{padding:8px 12px 10px;gap:10px}
   .controls-row{gap:7px}
   .play-btn{width:50px;height:50px}
   .ctrl-btn{padding:8px 10px}
   .prog-lbl{display:none} /* too cramped — hide page label, keep % */
-  .secondary-row{display:none} /* hidden by default, opened by settings toggle */
   .page-container{padding:12px 6px 24px}
   .thumb-list{ /* thicker thumbs on mobile */
     flex-direction:row;

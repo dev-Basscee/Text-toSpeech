@@ -128,8 +128,6 @@ const dom = {
     progFill: byId('progFill'),
     progLbl: byId('progLbl'),
     progPct: byId('progPct'),
-    settingsToggle: byId('settingsToggle'),
-    secondaryRow: byId('settingsClose').closest('.secondary-row'),
     swipeHint: byId('swipeHint'),
 };
 // ── State ─────────────────────────────────────────────
@@ -148,6 +146,31 @@ let pitch = 1.0;
 let voice = null;
 let autoAdvance = true;
 let currentItemIdx = -1;
+let ttsKeepAlive = null;
+let wakeLock = null;
+// ── Wake Lock ─────────────────────────────────────────
+async function requestWakeLock() {
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+            wakeLock.addEventListener('release', () => { wakeLock = null; });
+        }
+    }
+    catch (err) {
+        console.warn('Wake lock failed:', err);
+    }
+}
+function releaseWakeLock() {
+    if (wakeLock) {
+        wakeLock.release().catch(() => { });
+        wakeLock = null;
+    }
+}
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isSpeaking && !isPaused) {
+        requestWakeLock();
+    }
+});
 // ── Toast ─────────────────────────────────────────────
 function toast(msg, type = 'info', ms = 2600) {
     let wrap = document.querySelector('.toast-wrap');
@@ -212,18 +235,6 @@ window.addEventListener('resize', () => {
         dom.backdrop.classList.remove('visible');
         document.body.style.overflow = '';
     }
-});
-// ── Settings panel (voice + pitch) toggle for mobile ──
-dom.settingsToggle.addEventListener('click', () => {
-    const hidden = dom.secondaryRow.classList.toggle('hidden');
-    dom.settingsToggle.classList.toggle('active', !hidden);
-});
-// Hide secondary row on mobile by default
-if (window.innerWidth < 640)
-    dom.secondaryRow.classList.add('hidden');
-byId('settingsClose').addEventListener('click', () => {
-    dom.secondaryRow.classList.add('hidden');
-    dom.settingsToggle.classList.remove('active');
 });
 // ── Voices ────────────────────────────────────────────
 function loadVoices() {
