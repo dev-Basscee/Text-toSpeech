@@ -6,7 +6,7 @@
 //   • PDF files → Network only (too large to cache)
 // =====================================================
 
-const CACHE_NAME    = 'lexaread-v1';
+const CACHE_NAME    = 'lexaread-v2';
 const CDN_CACHE     = 'lexaread-cdn-v1';
 
 const SHELL_ASSETS = [
