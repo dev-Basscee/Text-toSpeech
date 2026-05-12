@@ -361,8 +361,10 @@ async function openFile(file: File): Promise<void> {
 // ── Thumbnails ──────────────────────────────────────────
 async function generateThumbnails(): Promise<void> {
   if (!pdf) return;
+  const targetPdf = pdf;
+  const targetPages = totalPages;
   dom.thumbList.innerHTML = '';
-  for (let p = 1; p <= totalPages; p++) {
+  for (let p = 1; p <= targetPages; p++) {
     const item = document.createElement('div');
     item.className = `thumb-item${p === 1 ? ' active' : ''}`;
     item.dataset['page'] = String(p);
@@ -372,11 +374,13 @@ async function generateThumbnails(): Promise<void> {
     // Render in background
     (async () => {
       try {
-        const page = await pdf!.getPage(p);
+        if (pdf !== targetPdf) return;
+        const page = await targetPdf.getPage(p);
         const vp   = page.getViewport({ scale: 0.18 });
         const c    = document.createElement('canvas');
         c.width = vp.width; c.height = vp.height;
         await page.render({ canvasContext: c.getContext('2d')!, viewport: vp }).promise;
+        if (pdf !== targetPdf) return;
         item.insertBefore(c, item.querySelector('.thumb-num'));
       } catch { /* ignore */ }
     })();
@@ -398,17 +402,17 @@ async function renderPage(pageNum: number): Promise<void> {
   currentPage = pageNum;
   showLoader('Rendering page…');
   if (renderTask) { try { renderTask.cancel(); } catch { /* ignore */ } }
-  // On mobile, auto-fit scale to viewer width before rendering
-  if (window.innerWidth < 640) {
-    try {
-      const pg = await pdf.getPage(pageNum);
-      const nv = pg.getViewport({ scale: 1 });
+  
+  try {
+    const page = await pdf.getPage(pageNum);
+    
+    // On mobile, auto-fit scale to viewer width before rendering
+    if (window.innerWidth < 640) {
+      const nv = page.getViewport({ scale: 1 });
       const tw = dom.viewerWrap.clientWidth - 24;
       if (nv.width > 0) scale = tw / nv.width;
-    } catch { /* ignore */ }
-  }
-  try {
-    const page     = await pdf.getPage(pageNum);
+    }
+
     const viewport = page.getViewport({ scale });
     const ctx      = dom.pdfCanvas.getContext('2d')!;
     dom.pdfCanvas.width  = viewport.width;
@@ -441,30 +445,92 @@ function buildTextLayer(content: PDFTextContent, viewport: PDFViewport): void {
   pageFullText = '';
   currentItemIdx = -1;
 
-  content.items.forEach((item) => {
-    if (!item.str.trim()) return;
+  // ── Step 1: Collect and map all non-empty items to screen coords ──
+  interface RawMapped {
+    str: string;
+    left: number; top: number; width: number; height: number; fontH: number;
+    right: number; baseline: number;
+  }
+  const mapped: RawMapped[] = [];
 
-    // Map PDF coordinates → screen coordinates
-    const tx     = pdfjsLib.Util.transform(viewport.transform, item.transform);
-    const fontH  = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
-    const left   = tx[4];
-    const top    = tx[5] - fontH;
-    const width  = Math.abs(item.width * viewport.scale);
-    const height = fontH * 1.2;
+  content.items.forEach((item) => {
+    if (!item.str) return;                        // keep spaces during mapping
+    const tx    = pdfjsLib.Util.transform(viewport.transform, item.transform);
+    const fontH = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
+    const left  = tx[4];
+    const top   = tx[5] - fontH;
+    const width = Math.abs(item.width * viewport.scale);
     if (top < -fontH || left < -width) return;
+    mapped.push({
+      str: item.str, left, top, width,
+      height: fontH * 1.2, fontH,
+      right: left + width,
+      baseline: tx[5],           // y-coordinate of baseline
+    });
+  });
+
+  if (!mapped.length) return;
+
+  // ── Step 2: Sort top-to-bottom, then left-to-right ──
+  mapped.sort((a, b) => {
+    const dy = a.baseline - b.baseline;
+    if (Math.abs(dy) > a.fontH * 0.5) return dy;
+    return a.left - b.left;
+  });
+
+  // ── Step 3: Group fragments into logical words/phrases ──
+  // Two fragments are merged (no space) when they share the same
+  // baseline (within half a font-height) AND the gap between them
+  // is less than one character width.
+  interface Group {
+    text: string;
+    left: number; top: number; width: number; height: number; fontH: number;
+    right: number; baseline: number;
+  }
+  const groups: Group[] = [];
+
+  for (const m of mapped) {
+    if (!groups.length) {
+      groups.push({ ...m, text: m.str });
+      continue;
+    }
+    const prev = groups[groups.length - 1];
+    const sameLine  = Math.abs(m.baseline - prev.baseline) < prev.fontH * 0.5;
+    const charWidth = prev.fontH * 0.55;          // approx char width
+    const gap       = m.left - prev.right;
+    const adjacent  = gap < charWidth * 1.5;      // close enough to merge
+
+    if (sameLine && adjacent) {
+      // Merge: add a space only if there's a real gap (> ~0.35 char)
+      // Increased from 0.2 to 0.35 to account for wide font kerning
+      const needsSpace = gap > charWidth * 0.35;
+      prev.text  += (needsSpace ? ' ' : '') + m.str;
+      prev.width  = (m.left + m.width) - prev.left;
+      prev.right  = m.left + m.width;
+    } else {
+      groups.push({ ...m, text: m.str });
+    }
+  }
+
+  // ── Step 4: Build overlay divs and TTS text from groups ──
+  groups.forEach((g) => {
+    if (!g.text.trim()) return;
 
     const div = document.createElement('div');
     div.className = 'tl-item';
-    div.style.cssText = `left:${left.toFixed(1)}px;top:${top.toFixed(1)}px;width:${width.toFixed(1)}px;height:${height.toFixed(1)}px;font-size:${fontH.toFixed(1)}px`;
+    div.style.cssText =
+      `left:${g.left.toFixed(1)}px;top:${g.top.toFixed(1)}px;` +
+      `width:${g.width.toFixed(1)}px;height:${g.height.toFixed(1)}px;` +
+      `font-size:${g.fontH.toFixed(1)}px`;
 
-    const processed  = preprocessForTTS(item.str);
-    const startChar  = pageFullText.length;
-    pageFullText    += processed + ' ';
-    const endChar    = pageFullText.length;
+    const processed = preprocessForTTS(g.text);
+    const startChar = pageFullText.length;
+    pageFullText   += processed + ' ';
+    const endChar   = pageFullText.length;
 
     const idx = items.length;
     div.addEventListener('click', () => jumpToItem(idx));
-    items.push({ rawText: item.str, processedText: processed, startChar, endChar, el: div });
+    items.push({ rawText: g.text, processedText: processed, startChar, endChar, el: div });
     dom.textLayer.appendChild(div);
   });
 }
