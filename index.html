@@ -61,7 +61,7 @@
         <span class="logo-icon">📖</span>
         <span class="logo-text">LexaRead</span>
       </div>
-      <button class="sidebar-close-btn" id="sidebarCloseBtn" title="Close menu">
+      <button class="sidebar-close-btn" id="sidebarCloseBtn" title="Close menu" aria-label="Close menu">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
@@ -111,7 +111,7 @@
   <!-- Topbar -->
   <header class="topbar">
     <div class="topbar-left">
-      <button class="icon-btn hamburger" id="sidebarToggleBtn" title="Toggle sidebar">
+      <button class="icon-btn hamburger" id="sidebarToggleBtn" title="Toggle sidebar" aria-label="Toggle sidebar">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
         </svg>
@@ -121,14 +121,14 @@
     </div>
 
     <div class="page-nav" id="pageNav" style="display:none">
-      <button class="nav-btn" id="prevPage" title="Previous page">
+      <button class="nav-btn" id="prevPage" title="Previous page" aria-label="Previous page">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
       <span class="page-indicator">
         <input type="number" id="pageInput" class="page-input" value="1" min="1"/>
         <span class="page-sep">/ <span id="totalPages">1</span></span>
       </span>
-      <button class="nav-btn" id="nextPage" title="Next page">
+      <button class="nav-btn" id="nextPage" title="Next page" aria-label="Next page">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
     </div>
@@ -136,10 +136,10 @@
     <div class="topbar-right">
       <select class="voice-sel" id="voiceSel" title="Voice"><option>Loading…</option></select>
       <div class="zoom-ctrl" id="zoomCtrl" style="display:none">
-        <button class="icon-btn" id="zoomOut" title="Zoom out">−</button>
+        <button class="icon-btn" id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
         <span class="zoom-val" id="zoomVal">100%</span>
-        <button class="icon-btn" id="zoomIn" title="Zoom in">+</button>
-        <button class="icon-btn fit-btn" id="fitPage" title="Fit to width">⊡</button>
+        <button class="icon-btn" id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+        <button class="icon-btn fit-btn" id="fitPage" title="Fit to width" aria-label="Fit to width">⊡</button>
       </div>
     </div>
   </header>
@@ -206,31 +206,31 @@
 
     <!-- Main controls row -->
     <div class="controls-row">
-      <button class="ctrl-btn" id="skipBack" disabled title="Back">
+      <button class="ctrl-btn" id="skipBack" disabled title="Back" aria-label="Skip back">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
         </svg>
       </button>
 
-      <button class="play-btn" id="playBtn" disabled>
+      <button class="play-btn" id="playBtn" disabled aria-label="Play or pause">
         <svg class="ico-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         <svg class="ico-pause" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
       </button>
 
-      <button class="ctrl-btn" id="stopBtn" disabled title="Stop">
+      <button class="ctrl-btn" id="stopBtn" disabled title="Stop" aria-label="Stop reading">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
       </button>
 
-      <button class="ctrl-btn" id="skipFwd" disabled title="Forward">
+      <button class="ctrl-btn" id="skipFwd" disabled title="Forward" aria-label="Skip forward">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-4.5"/>
         </svg>
       </button>
 
       <div class="speed-box">
-        <button class="spd-btn" id="spdDn">−</button>
+        <button class="spd-btn" id="spdDn" aria-label="Decrease speed">−</button>
         <span class="spd-val" id="spdVal">1.0×</span>
-        <button class="spd-btn" id="spdUp">+</button>
+        <button class="spd-btn" id="spdUp" aria-label="Increase speed">+</button>
       </div>
 
       <button class="auto-btn" id="autoBtn" data-on="true">Auto ▶</button>

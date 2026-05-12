@@ -170,6 +170,9 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && isSpeaking && !isPaused) {
         requestWakeLock();
     }
+    else if (document.visibilityState === 'hidden') {
+        releaseWakeLock();
+    }
 });
 // ── Toast ─────────────────────────────────────────────
 function toast(msg, type = 'info', ms = 2600) {
@@ -281,6 +284,14 @@ async function openFile(file) {
     showLoader('Loading PDF…');
     bookTitle = file.name.replace(/\.pdf$/i, '');
     try {
+        if (pdf) {
+            try {
+                pdf.destroy();
+            }
+            catch (err) {
+                console.warn('Failed to destroy old PDF:', err);
+            }
+        }
         const buf = await file.arrayBuffer();
         pdf = await pdfjsLib.getDocument({ data: buf }).promise;
         totalPages = pdf.numPages;
@@ -314,6 +325,10 @@ async function generateThumbnails() {
         return;
     const targetPdf = pdf;
     const targetPages = totalPages;
+    dom.thumbList.querySelectorAll('canvas').forEach(c => {
+        c.width = 0;
+        c.height = 0;
+    });
     dom.thumbList.innerHTML = '';
     for (let p = 1; p <= targetPages; p++) {
         const item = document.createElement('div');
@@ -337,7 +352,11 @@ async function generateThumbnails() {
                     return;
                 item.insertBefore(c, item.querySelector('.thumb-num'));
             }
-            catch { /* ignore */ }
+            catch (err) {
+                if (err?.name !== 'RenderingCancelledException') {
+                    console.warn('Thumbnail render error on page', p, err);
+                }
+            }
         })();
         if (p % 5 === 0)
             await new Promise(r => setTimeout(r, 0));
@@ -360,7 +379,9 @@ async function renderPage(pageNum) {
         try {
             renderTask.cancel();
         }
-        catch { /* ignore */ }
+        catch (err) {
+            console.warn('Render cancel error:', err);
+        }
     }
     try {
         const page = await pdf.getPage(pageNum);

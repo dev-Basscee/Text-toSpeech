@@ -12,6 +12,7 @@ declare const pdfjsLib: {
 interface PDFDoc {
   numPages: number;
   getPage: (n: number) => Promise<PDFPage>;
+  destroy: () => void;
 }
 interface PDFPage {
   getViewport: (opts: { scale: number }) => PDFViewport;
@@ -33,6 +34,8 @@ interface PDFTextItem {
   width: number;
   height: number;
 }
+
+// ── Web APIs ─────────────────────────────────────────
 
 // ── App-level types ──────────────────────────────────
 interface TLItem {
@@ -202,13 +205,13 @@ let voice: SpeechSynthesisVoice | null = null;
 let autoAdvance        = true;
 let currentItemIdx     = -1;
 let ttsKeepAlive: ReturnType<typeof setInterval> | null = null;
-let wakeLock: any = null;
+let wakeLock: WakeLockSentinel | null = null;
 
 // ── Wake Lock ─────────────────────────────────────────
 async function requestWakeLock() {
   try {
     if ('wakeLock' in navigator) {
-      wakeLock = await (navigator as any).wakeLock.request('screen');
+      wakeLock = await navigator.wakeLock!.request('screen');
       wakeLock.addEventListener('release', () => { wakeLock = null; });
     }
   } catch (err) {
@@ -224,6 +227,8 @@ function releaseWakeLock() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && isSpeaking && !isPaused) {
     requestWakeLock();
+  } else if (document.visibilityState === 'hidden') {
+    releaseWakeLock();
   }
 });
 
@@ -341,6 +346,9 @@ async function openFile(file: File): Promise<void> {
   showLoader('Loading PDF…');
   bookTitle = file.name.replace(/\.pdf$/i, '');
   try {
+    if (pdf) {
+      try { pdf.destroy(); } catch (err) { console.warn('Failed to destroy old PDF:', err); }
+    }
     const buf = await file.arrayBuffer();
     pdf = await pdfjsLib.getDocument({ data: buf }).promise;
     totalPages  = pdf.numPages;
@@ -373,6 +381,9 @@ async function generateThumbnails(): Promise<void> {
   if (!pdf) return;
   const targetPdf = pdf;
   const targetPages = totalPages;
+  dom.thumbList.querySelectorAll('canvas').forEach(c => {
+    c.width = 0; c.height = 0;
+  });
   dom.thumbList.innerHTML = '';
   for (let p = 1; p <= targetPages; p++) {
     const item = document.createElement('div');
@@ -392,7 +403,11 @@ async function generateThumbnails(): Promise<void> {
         await page.render({ canvasContext: c.getContext('2d')!, viewport: vp }).promise;
         if (pdf !== targetPdf) return;
         item.insertBefore(c, item.querySelector('.thumb-num'));
-      } catch { /* ignore */ }
+      } catch (err) {
+        if ((err as Error)?.name !== 'RenderingCancelledException') {
+          console.warn('Thumbnail render error on page', p, err);
+        }
+      }
     })();
     if (p % 5 === 0) await new Promise(r => setTimeout(r, 0));
   }
@@ -411,7 +426,7 @@ async function renderPage(pageNum: number): Promise<void> {
   pageNum = Math.max(1, Math.min(pageNum, totalPages));
   currentPage = pageNum;
   showLoader('Rendering page…');
-  if (renderTask) { try { renderTask.cancel(); } catch { /* ignore */ } }
+  if (renderTask) { try { renderTask.cancel(); } catch (err) { console.warn('Render cancel error:', err); } }
   
   try {
     const page = await pdf.getPage(pageNum);
