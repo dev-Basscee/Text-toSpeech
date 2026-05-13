@@ -422,9 +422,9 @@ body{
 }
 
 .system-status {
-  font-family: monospace; font-size: 12px; color: var(--accent);
-  text-transform: uppercase; letter-spacing: 2px;
-  margin-bottom: 24px; opacity: 0.8;
+  font-family: var(--font); font-size: 13px; color: var(--accent);
+  font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 24px; opacity: 0.9;
 }
 
 .w-icon{
@@ -436,25 +436,23 @@ body{
 .welcome-body h1{
   font-size:clamp(40px,10vw,80px);font-weight:900;
   color:#fff;
-  margin-bottom:12px;line-height:0.9;
-  letter-spacing:-3px;
-  text-transform: uppercase;
+  margin-bottom:12px;line-height:1;
+  letter-spacing:-2px;
   transform: translateZ(100px);
 }
 
 .welcome-body p{
-  font-size:clamp(14px,3.5vw,18px);color:var(--text3);
-  font-family: monospace; text-transform: uppercase;
-  letter-spacing: 1px; line-height: 1.5; margin-bottom: 40px;
+  font-size:clamp(16px,4vw,20px);color:var(--text3);
+  line-height: 1.5; margin-bottom: 40px;
   transform: translateZ(60px);
 }
 
 .w-pills{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:40px;transform: translateZ(40px);}
 .w-pills span{
   background:rgba(47, 47, 228, 0.1); border: 1px solid var(--accent);
-  border-radius:0; padding:8px 16px;
-  font-size:12px; color:var(--accent);
-  font-family: monospace; font-weight: 700;
+  border-radius:100px; padding:8px 20px;
+  font-size:13px; color:var(--accent);
+  font-weight: 700;
 }
 .mobile-upload-cta{
   display:none; /* shown only on mobile */

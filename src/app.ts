@@ -1046,7 +1046,7 @@ dom.zoomVal.textContent = '100%';
       clearInterval(interval);
       setTimeout(() => {
         const status = welcome.querySelector('.system-status');
-        if (status) status.innerHTML = 'SYSTEM_READY // EXTRACTOR_ONLINE';
+        if (status) status.innerHTML = 'READER_READY // SYSTEM_ONLINE';
       }, 500);
     }
     if (pctEl) pctEl.textContent = `${pct}%`;

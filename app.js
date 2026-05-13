@@ -990,7 +990,7 @@ dom.zoomVal.textContent = '100%';
             setTimeout(() => {
                 const status = welcome.querySelector('.system-status');
                 if (status)
-                    status.innerHTML = 'SYSTEM_READY // EXTRACTOR_ONLINE';
+                    status.innerHTML = 'READER_READY // SYSTEM_ONLINE';
             }, 500);
         }
         if (pctEl)
