@@ -231,10 +231,9 @@ const dom = {
   bookPages:      byId('bookPages'),
   closeBookBtn:   byId<HTMLButtonElement>('closeBookBtn'),
   libHeader:      byId('libHeader'),
-
-  thumbList:      byId('thumbList'),
-  libHeader:      byId('libHeader'),
   libList:        byId('libList'),
+  thumbHeader:    byId('thumbHeader'),
+  thumbList:      byId('thumbList'),
   themeBtn:       byId('themeBtn'),
   themeIcon:      byId('themeIcon'),
   themeLabel:     byId('themeLabel'),
