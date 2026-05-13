@@ -3,6 +3,59 @@
 // LexaRead — app.ts
 // Page-by-page PDF reader with professional TTS
 // =====================================================
+class LexaDB {
+    constructor() {
+        this.dbName = 'LexaReadDB';
+        this.dbVer = 1;
+        this.db = null;
+    }
+    async init() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(this.dbName, this.dbVer);
+            req.onupgradeneeded = () => {
+                const db = req.result;
+                if (!db.objectStoreNames.contains('books')) {
+                    db.createObjectStore('books', { keyPath: 'id' });
+                }
+                if (!db.objectStoreNames.contains('progress')) {
+                    db.createObjectStore('progress', { keyPath: 'bookId' });
+                }
+            };
+            req.onsuccess = () => { this.db = req.result; resolve(); };
+            req.onerror = () => reject(req.error);
+        });
+    }
+    async saveBook(book) {
+        return this.tx('books', 'readwrite', store => store.put(book));
+    }
+    async getBook(id) {
+        return this.tx('books', 'readonly', store => store.get(id));
+    }
+    async getAllBooks() {
+        return this.tx('books', 'readonly', store => store.getAll());
+    }
+    async deleteBook(id) {
+        await this.tx('books', 'readwrite', store => store.delete(id));
+        await this.tx('progress', 'readwrite', store => store.delete(id));
+    }
+    async saveProgress(prog) {
+        return this.tx('progress', 'readwrite', store => store.put(prog));
+    }
+    async getProgress(bookId) {
+        return this.tx('progress', 'readonly', store => store.get(bookId));
+    }
+    tx(storeName, mode, op) {
+        return new Promise((resolve, reject) => {
+            if (!this.db)
+                return reject(new Error('DB not initialized'));
+            const tx = this.db.transaction(storeName, mode);
+            const req = op(tx.objectStore(storeName));
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+}
+const localDb = new LexaDB();
 // ── Abbreviation map ─────────────────────────────────
 const ABBREVS = {
     Dr: 'Doctor', Mr: 'Mister', Mrs: 'Missus', Ms: 'Miss',
@@ -94,6 +147,8 @@ const dom = {
     bookPages: byId('bookPages'),
     thumbHeader: byId('thumbHeader'),
     thumbList: byId('thumbList'),
+    libHeader: byId('libHeader'),
+    libList: byId('libList'),
     themeBtn: byId('themeBtn'),
     themeIcon: byId('themeIcon'),
     themeLabel: byId('themeLabel'),
@@ -136,6 +191,7 @@ let currentPage = 1;
 let totalPages = 0;
 let scale = 1.5;
 let bookTitle = '';
+let currentBookId = '';
 let renderTask = null;
 let items = [];
 let pageFullText = '';
@@ -244,6 +300,7 @@ function loadVoices() {
     const voices = speechSynthesis.getVoices();
     if (!voices.length)
         return;
+    const currentVal = dom.voiceSel.value;
     dom.voiceSel.innerHTML = '';
     voices.forEach((v, i) => {
         const o = document.createElement('option');
@@ -251,9 +308,14 @@ function loadVoices() {
         o.textContent = `${v.name} (${v.lang})`;
         dom.voiceSel.appendChild(o);
     });
-    const pref = voices.findIndex(v => v.lang.startsWith('en') &&
-        (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Premium') || v.name.includes('Samantha')));
-    dom.voiceSel.value = String(pref >= 0 ? pref : 0);
+    if (currentBookId && currentVal !== 'Loading…' && currentVal !== '') {
+        dom.voiceSel.value = currentVal;
+    }
+    else {
+        const pref = voices.findIndex(v => v.lang.startsWith('en') &&
+            (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Premium') || v.name.includes('Samantha')));
+        dom.voiceSel.value = String(pref >= 0 ? pref : 0);
+    }
     voice = voices[Number(dom.voiceSel.value)];
 }
 speechSynthesis.onvoiceschanged = loadVoices;
@@ -275,6 +337,21 @@ dom.dropZone.addEventListener('drop', (e) => {
 });
 dom.fileInput.addEventListener('change', () => { const f = dom.fileInput.files?.[0]; if (f)
     openFile(f); });
+async function generateCover(targetPdf) {
+    try {
+        const page = await targetPdf.getPage(1);
+        const vp = page.getViewport({ scale: 0.25 });
+        const c = document.createElement('canvas');
+        c.width = vp.width;
+        c.height = vp.height;
+        await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+        return c.toDataURL('image/jpeg', 0.8);
+    }
+    catch (err) {
+        console.warn('Cover gen failed:', err);
+        return '';
+    }
+}
 async function openFile(file) {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
         toast('Only PDF files supported.', 'err');
@@ -283,6 +360,7 @@ async function openFile(file) {
     stopTTS();
     showLoader('Loading PDF…');
     bookTitle = file.name.replace(/\.pdf$/i, '');
+    currentBookId = `${file.name}-${file.size}`;
     try {
         if (pdf) {
             try {
@@ -296,6 +374,30 @@ async function openFile(file) {
         pdf = await pdfjsLib.getDocument({ data: buf }).promise;
         totalPages = pdf.numPages;
         currentPage = 1;
+        // Persist
+        const thumb = await generateCover(pdf);
+        await localDb.saveBook({
+            id: currentBookId,
+            title: bookTitle,
+            data: buf,
+            thumbnail: thumb,
+            totalPages,
+            addedAt: Date.now()
+        });
+        const prog = await localDb.getProgress(currentBookId);
+        if (prog) {
+            currentPage = prog.lastPage;
+            rate = prog.rate || 1.0;
+            pitch = prog.pitch || 1.0;
+            scale = prog.zoom || 1.5;
+            dom.spdVal.textContent = rate.toFixed(1) + '×';
+            dom.pitchSlider.value = String(pitch);
+            dom.zoomVal.textContent = Math.round((scale / 1.5) * 100) + '%';
+            if (!isNaN(prog.voiceIdx) && dom.voiceSel.options.length > 1 && prog.voiceIdx < dom.voiceSel.options.length) {
+                dom.voiceSel.value = String(prog.voiceIdx);
+                voice = speechSynthesis.getVoices()[prog.voiceIdx];
+            }
+        }
         dom.bookName.textContent = bookTitle;
         dom.bookPages.textContent = `${totalPages} page${totalPages !== 1 ? 's' : ''}`;
         dom.bookInfo.style.display = '';
@@ -306,9 +408,9 @@ async function openFile(file) {
         dom.pageInput.max = String(totalPages);
         enableControls(true);
         generateThumbnails();
-        await renderPage(1);
+        refreshLibrary();
+        await renderPage(currentPage);
         toast(`"${bookTitle}" loaded!`, 'ok');
-        // Show swipe hint briefly on mobile
         if (window.innerWidth < 640) {
             dom.swipeHint.style.display = '';
             setTimeout(() => { dom.swipeHint.style.display = 'none'; }, 3500);
@@ -316,6 +418,122 @@ async function openFile(file) {
     }
     catch (err) {
         toast('Failed to open PDF: ' + err.message, 'err');
+        showWelcome();
+    }
+}
+async function saveCurrentProgress() {
+    if (!currentBookId)
+        return;
+    await localDb.saveProgress({
+        bookId: currentBookId,
+        lastPage: currentPage,
+        zoom: scale,
+        voiceIdx: Number(dom.voiceSel.value),
+        rate: rate,
+        pitch: pitch,
+        lastRead: Date.now()
+    });
+}
+async function refreshLibrary() {
+    const books = await localDb.getAllBooks();
+    if (!books.length) {
+        dom.libHeader.style.display = 'none';
+        dom.libList.innerHTML = '';
+        return;
+    }
+    dom.libHeader.style.display = '';
+    dom.libList.innerHTML = '';
+    books.sort((a, b) => b.addedAt - a.addedAt);
+    for (const b of books) {
+        const item = document.createElement('div');
+        item.className = `lib-item${b.id === currentBookId ? ' active' : ''}`;
+        item.innerHTML = `
+      <img src="${b.thumbnail || ''}" class="lib-thumb" alt="cover"/>
+      <div class="lib-info">
+        <div class="lib-title">${b.title}</div>
+        <div class="lib-meta">${b.totalPages} pages</div>
+      </div>
+      <button class="lib-del" title="Remove from library">✕</button>
+    `;
+        item.addEventListener('click', (e) => {
+            if (e.target.classList.contains('lib-del'))
+                return;
+            if (b.id !== currentBookId)
+                loadFromLibrary(b.id);
+        });
+        item.querySelector('.lib-del')?.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (confirm(`Remove "${b.title}" from library?`)) {
+                await localDb.deleteBook(b.id);
+                if (b.id === currentBookId) {
+                    pdf?.destroy();
+                    pdf = null;
+                    currentBookId = '';
+                    showWelcome();
+                    dom.bookInfo.style.display = 'none';
+                    dom.thumbHeader.style.display = 'none';
+                    dom.pageNav.style.display = 'none';
+                    dom.zoomCtrl.style.display = 'none';
+                    dom.thumbList.innerHTML = '';
+                    enableControls(false);
+                }
+                refreshLibrary();
+            }
+        });
+        dom.libList.appendChild(item);
+    }
+}
+async function loadFromLibrary(id) {
+    stopTTS();
+    showLoader('Opening book…');
+    try {
+        const b = await localDb.getBook(id);
+        if (!b)
+            throw new Error('Book data missing');
+        bookTitle = b.title;
+        currentBookId = b.id;
+        if (pdf) {
+            try {
+                pdf.destroy();
+            }
+            catch (e) { }
+        }
+        pdf = await pdfjsLib.getDocument({ data: b.data }).promise;
+        totalPages = pdf.numPages;
+        const prog = await localDb.getProgress(id);
+        if (prog) {
+            currentPage = prog.lastPage;
+            rate = prog.rate || 1.0;
+            pitch = prog.pitch || 1.0;
+            scale = prog.zoom || 1.5;
+            dom.spdVal.textContent = rate.toFixed(1) + '×';
+            dom.pitchSlider.value = String(pitch);
+            dom.zoomVal.textContent = Math.round((scale / 1.5) * 100) + '%';
+            if (!isNaN(prog.voiceIdx) && dom.voiceSel.options.length > 1 && prog.voiceIdx < dom.voiceSel.options.length) {
+                dom.voiceSel.value = String(prog.voiceIdx);
+                voice = speechSynthesis.getVoices()[prog.voiceIdx];
+            }
+        }
+        else {
+            currentPage = 1;
+            scale = 1.5;
+            dom.zoomVal.textContent = '100%';
+        }
+        dom.bookName.textContent = bookTitle;
+        dom.bookPages.textContent = `${totalPages} page${totalPages !== 1 ? 's' : ''}`;
+        dom.bookInfo.style.display = '';
+        dom.thumbHeader.style.display = '';
+        dom.pageNav.style.display = '';
+        dom.zoomCtrl.style.display = '';
+        dom.totalPages.textContent = String(totalPages);
+        dom.pageInput.max = String(totalPages);
+        enableControls(true);
+        generateThumbnails();
+        refreshLibrary();
+        await renderPage(currentPage);
+    }
+    catch (err) {
+        toast('Failed to load: ' + err.message, 'err');
         showWelcome();
     }
 }
@@ -410,6 +628,7 @@ async function renderPage(pageNum) {
         updateProgress();
         showPage();
         dom.viewerWrap.scrollTop = 0;
+        saveCurrentProgress();
     }
     catch (err) {
         if (err?.name === 'RenderingCancelledException')
@@ -720,6 +939,19 @@ document.addEventListener('keydown', (e) => {
 showWelcome();
 enableControls(false);
 dom.zoomVal.textContent = '100%';
+localDb.init().then(async () => {
+    await refreshLibrary();
+    // Auto-load most recent
+    const books = await localDb.getAllBooks();
+    if (books.length) {
+        const progs = await Promise.all(books.map(b => localDb.getProgress(b.id)));
+        const validProgs = progs.filter((p) => !!p);
+        if (validProgs.length) {
+            validProgs.sort((a, b) => b.lastRead - a.lastRead);
+            loadFromLibrary(validProgs[0].bookId);
+        }
+    }
+});
 // ── Touch swipe gestures ─────────────────────────────────
 (function initSwipe() {
     let touchStartX = 0;
