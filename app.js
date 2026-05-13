@@ -373,6 +373,8 @@ async function openFile(file) {
             }
         }
         const buf = await file.arrayBuffer();
+        // Clone the buffer because PDF.js takes ownership of it (detaches it)
+        const bufForDb = buf.slice(0);
         pdf = await pdfjsLib.getDocument({ data: buf }).promise;
         totalPages = pdf.numPages;
         currentPage = 1;
@@ -381,7 +383,7 @@ async function openFile(file) {
         await localDb.saveBook({
             id: currentBookId,
             title: bookTitle,
-            data: buf,
+            data: bufForDb,
             thumbnail: thumb,
             totalPages,
             addedAt: Date.now()

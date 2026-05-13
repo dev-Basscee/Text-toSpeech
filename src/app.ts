@@ -457,6 +457,8 @@ async function openFile(file: File): Promise<void> {
       try { pdf.destroy(); } catch (err) { console.warn('Failed to destroy old PDF:', err); }
     }
     const buf = await file.arrayBuffer();
+    // Clone the buffer because PDF.js takes ownership of it (detaches it)
+    const bufForDb = buf.slice(0);
     pdf = await pdfjsLib.getDocument({ data: buf }).promise;
     totalPages  = pdf.numPages;
     currentPage = 1;
@@ -466,7 +468,7 @@ async function openFile(file: File): Promise<void> {
     await localDb.saveBook({
       id: currentBookId,
       title: bookTitle,
-      data: buf,
+      data: bufForDb,
       thumbnail: thumb,
       totalPages,
       addedAt: Date.now()
