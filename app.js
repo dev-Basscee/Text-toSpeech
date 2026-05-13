@@ -972,6 +972,24 @@ document.addEventListener('keydown', (e) => {
 showWelcome();
 enableControls(false);
 dom.zoomVal.textContent = '100%';
+// ── 4D Parallax Effect ──────────────────────────────────
+(function init4D() {
+    const welcome = byId('welcome');
+    const target = welcome.querySelector('.parallax-target');
+    if (!target)
+        return;
+    welcome.addEventListener('mousemove', (e) => {
+        const { clientX, clientY } = e;
+        const { innerWidth, innerHeight } = window;
+        // Calculate tilt (max 10 degrees)
+        const xTilt = ((clientY / innerHeight) - 0.5) * -20;
+        const yTilt = ((clientX / innerWidth) - 0.5) * 20;
+        target.style.transform = `rotateX(${xTilt}deg) rotateY(${yTilt}deg)`;
+    });
+    welcome.addEventListener('mouseleave', () => {
+        target.style.transform = 'rotateX(0deg) rotateY(0deg)';
+    });
+})();
 localDb.init().then(async () => {
     await refreshLibrary();
     // Auto-load most recent
