@@ -976,15 +976,37 @@ dom.zoomVal.textContent = '100%';
 (function init4D() {
     const welcome = byId('welcome');
     const target = welcome.querySelector('.parallax-target');
+    const grid = welcome.querySelector('.cyber-grid');
+    const pctEl = byId('initPct');
     if (!target)
         return;
+    // Technical Loader animation
+    let pct = 0;
+    const interval = setInterval(() => {
+        pct += Math.floor(Math.random() * 8) + 1;
+        if (pct >= 100) {
+            pct = 100;
+            clearInterval(interval);
+            setTimeout(() => {
+                const status = welcome.querySelector('.system-status');
+                if (status)
+                    status.innerHTML = 'SYSTEM_READY // EXTRACTOR_ONLINE';
+            }, 500);
+        }
+        if (pctEl)
+            pctEl.textContent = `${pct}%`;
+    }, 80);
     welcome.addEventListener('mousemove', (e) => {
         const { clientX, clientY } = e;
         const { innerWidth, innerHeight } = window;
-        // Calculate tilt (max 10 degrees)
-        const xTilt = ((clientY / innerHeight) - 0.5) * -20;
-        const yTilt = ((clientX / innerWidth) - 0.5) * 20;
+        // Calculate tilt
+        const xTilt = ((clientY / innerHeight) - 0.5) * -30;
+        const yTilt = ((clientX / innerWidth) - 0.5) * 30;
         target.style.transform = `rotateX(${xTilt}deg) rotateY(${yTilt}deg)`;
+        // Grid parallax
+        if (grid) {
+            grid.style.backgroundPosition = `${yTilt * 2}px ${xTilt * 2}px`;
+        }
     });
     welcome.addEventListener('mouseleave', () => {
         target.style.transform = 'rotateX(0deg) rotateY(0deg)';

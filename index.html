@@ -163,20 +163,28 @@
 
     <!-- Welcome -->
     <div class="welcome" id="welcome">
+      <div class="cyber-grid"></div>
       <div class="welcome-bg-effects">
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="orb orb-3"></div>
+        <div class="wireframe-container">
+          <div class="cube">
+            <div class="face front"></div>
+            <div class="face back"></div>
+            <div class="face left"></div>
+            <div class="face right"></div>
+            <div class="face top"></div>
+            <div class="face bottom"></div>
+          </div>
+        </div>
       </div>
       <div class="welcome-body parallax-target">
-        <div class="w-icon">🎓</div>
-        <h1>Upload Your Course Material</h1>
-        <p>Drop a PDF in the sidebar — LexaRead renders it page by page and reads it aloud with live highlighting.</p>
+        <div class="system-status">Initializing... <span id="initPct">0%</span></div>
+        <div class="w-icon">📖</div>
+        <h1 class="glitch-text" data-text="LexaRead">LexaRead</h1>
+        <p>Advanced Course Materials Processor. Upload PDF to begin extraction.</p>
         <div class="w-pills">
-          <span>📄 Page-by-Page</span>
-          <span>🔆 Live Highlight</span>
-          <span>🎙️ Natural Voices</span>
-          <span>⚡ Auto Advance</span>
+          <span>// WEB3_READY</span>
+          <span>// 3D_RENDERING</span>
+          <span>// PERSISTENT_STORAGE</span>
         </div>
         <!-- Mobile upload CTA -->
         <label class="btn-browse mobile-upload-cta" for="fileInput">
@@ -184,7 +192,7 @@
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
             <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          Upload PDF
+          UPLOAD PDF
         </label>
       </div>
     </div>
