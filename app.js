@@ -131,8 +131,10 @@ function preprocessForTTS(raw) {
 // ── DOM refs ─────────────────────────────────────────
 function byId(id) {
     const el = document.getElementById(id);
-    if (!el)
-        throw new Error(`Element #${id} not found`);
+    if (!el) {
+        console.warn(`Element #${id} not found in DOM. This may be due to a stale cache.`);
+        return document.createElement('div');
+    }
     return el;
 }
 const dom = {

@@ -6,7 +6,7 @@
 //   • PDF files → Network only (too large to cache)
 // =====================================================
 
-const CACHE_NAME    = 'lexaread-v6';
+const CACHE_NAME    = 'lexaread-v7';
 const CDN_CACHE     = 'lexaread-cdn-v1';
 
 const SHELL_ASSETS = [
@@ -61,9 +61,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App shell: cache-first
+  // App shell: Network-first (Ensures updates are seen immediately when online)
   if (url.origin === self.location.origin) {
-    event.respondWith(cacheFirst(event.request, CACHE_NAME));
+    event.respondWith(networkFirst(event.request, CACHE_NAME));
     return;
   }
 
@@ -72,9 +72,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 // ── Cache strategies ──────────────────────────────────
-async function cacheFirst(request, cacheName) {
-  const cached = await caches.match(request, { ignoreSearch: true });
-  if (cached) return cached;
+async function networkFirst(request, cacheName) {
   try {
     const response = await fetch(request);
     if (response.ok) {
@@ -83,11 +81,8 @@ async function cacheFirst(request, cacheName) {
     }
     return response;
   } catch {
-    // Offline fallback: return the cached root page
-    return caches.match('/', { ignoreSearch: true }) || new Response('LexaRead is offline. Please reconnect.', {
-      status: 503,
-      headers: { 'Content-Type': 'text/plain' }
-    });
+    const cached = await caches.match(request, { ignoreSearch: true });
+    return cached || caches.match('/', { ignoreSearch: true }) || new Response('Offline', { status: 503 });
   }
 }
 

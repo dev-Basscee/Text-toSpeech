@@ -212,7 +212,10 @@ function preprocessForTTS(raw: string): string {
 // ── DOM refs ─────────────────────────────────────────
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
-  if (!el) throw new Error(`Element #${id} not found`);
+  if (!el) {
+    console.warn(`Element #${id} not found in DOM. This may be due to a stale cache.`);
+    return document.createElement('div') as unknown as T;
+  }
   return el as T;
 }
 
