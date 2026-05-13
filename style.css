@@ -164,7 +164,36 @@ body{
 }
 .book-icon{font-size:22px;flex-shrink:0}
 .book-name{font-size:12px;font-weight:600;color:var(--text);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
-.book-pages{font-size:11px;color:var(--text3);margin-top:2px}
+.book-pages{font-size:11px;font-weight:600;color:var(--text3);margin-top:2px}
+
+.close-book-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text3);
+  border-radius: 10px;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all var(--trans);
+  flex-shrink: 0;
+  perspective: 1000px; /* Needed for 3D */
+}
+.close-book-btn:hover {
+  background: var(--bg2);
+  color: #ff4d4d;
+  border-color: #ff4d4d;
+  transform: scale(1.1);
+}
+
+/* 3D Spin Animation */
+.spin-3d {
+  animation: spin3d 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes spin3d {
+  0% { transform: rotateY(0deg) scale(1.1); }
+  100% { transform: rotateY(360deg) scale(1.1); }
+}
 
 /* Library list */
 .lib-header{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);padding:24px 16px 8px;flex-shrink:0}

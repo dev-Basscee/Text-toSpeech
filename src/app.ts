@@ -229,7 +229,9 @@ const dom = {
   bookInfo:       byId('bookInfo'),
   bookName:       byId('bookName'),
   bookPages:      byId('bookPages'),
-  thumbHeader:    byId('thumbHeader'),
+  closeBookBtn:   byId<HTMLButtonElement>('closeBookBtn'),
+  libHeader:      byId('libHeader'),
+
   thumbList:      byId('thumbList'),
   libHeader:      byId('libHeader'),
   libList:        byId('libList'),
@@ -387,6 +389,34 @@ window.addEventListener('resize', () => {
     dom.backdrop.classList.remove('visible');
     document.body.style.overflow = '';
   }
+});
+
+dom.closeBookBtn.addEventListener('click', () => {
+  if (!currentBookId) return;
+  
+  // Add 3D spin class
+  dom.closeBookBtn.classList.add('spin-3d');
+  
+  // Wait for animation then close
+  setTimeout(() => {
+    stopTTS();
+    if (pdf) {
+      try { pdf.destroy(); } catch (err) {}
+      pdf = null;
+    }
+    currentBookId = '';
+    showWelcome();
+    dom.bookInfo.style.display = 'none';
+    dom.thumbHeader.style.display = 'none';
+    dom.pageNav.style.display = 'none';
+    dom.zoomCtrl.style.display = 'none';
+    dom.thumbList.innerHTML = '';
+    enableControls(false);
+    refreshLibrary(); // Update active state in list
+    
+    // Remove class for next time
+    dom.closeBookBtn.classList.remove('spin-3d');
+  }, 600);
 });
 
 // ── Voices ────────────────────────────────────────────
