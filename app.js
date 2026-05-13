@@ -252,13 +252,13 @@ function toast(msg, type = 'info', ms = 2600) {
 }
 // ── Theme ─────────────────────────────────────────────
 function applyTheme(t) {
-    document.body.classList.toggle('light', t === 'light');
-    dom.themeIcon.textContent = t === 'light' ? '☀️' : '🌙';
-    dom.themeLabel.textContent = t === 'light' ? 'Light Mode' : 'Dark Mode';
+    document.body.classList.toggle('dark', t === 'dark');
+    dom.themeIcon.textContent = t === 'dark' ? '🌙' : '☀️';
+    dom.themeLabel.textContent = t === 'dark' ? 'Dark Mode' : 'Light Mode';
     localStorage.setItem('lexa-theme', t);
 }
-applyTheme(localStorage.getItem('lexa-theme') ?? 'dark');
-dom.themeBtn.addEventListener('click', () => applyTheme(document.body.classList.contains('light') ? 'dark' : 'light'));
+applyTheme(localStorage.getItem('lexa-theme') ?? 'light');
+dom.themeBtn.addEventListener('click', () => applyTheme(document.body.classList.contains('dark') ? 'light' : 'dark'));
 // ── Sidebar ───────────────────────────────────────────
 const DESKTOP_BP = 900;
 function openSidebar() {

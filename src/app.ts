@@ -337,14 +337,14 @@ function toast(msg: string, type: 'ok' | 'err' | 'info' = 'info', ms = 2600): vo
 
 // ── Theme ─────────────────────────────────────────────
 function applyTheme(t: string): void {
-  document.body.classList.toggle('light', t === 'light');
-  dom.themeIcon.textContent  = t === 'light' ? '☀️' : '🌙';
-  dom.themeLabel.textContent = t === 'light' ? 'Light Mode' : 'Dark Mode';
+  document.body.classList.toggle('dark', t === 'dark');
+  dom.themeIcon.textContent  = t === 'dark' ? '🌙' : '☀️';
+  dom.themeLabel.textContent = t === 'dark' ? 'Dark Mode' : 'Light Mode';
   localStorage.setItem('lexa-theme', t);
 }
-applyTheme(localStorage.getItem('lexa-theme') ?? 'dark');
+applyTheme(localStorage.getItem('lexa-theme') ?? 'light');
 dom.themeBtn.addEventListener('click', () =>
-  applyTheme(document.body.classList.contains('light') ? 'dark' : 'light')
+  applyTheme(document.body.classList.contains('dark') ? 'light' : 'dark')
 );
 
 // ── Sidebar ───────────────────────────────────────────
