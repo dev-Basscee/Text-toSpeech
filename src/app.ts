@@ -55,6 +55,13 @@ interface DbProgress {
   pitch: number;
   lastRead: number;
 }
+interface DbNote {
+  id: string; // bookname-note
+  bookId: string;
+  title: string;
+  content: string;
+  updatedAt: number;
+}
 
 class LexaDB {
   private dbName = 'LexaReadDB';
@@ -71,6 +78,9 @@ class LexaDB {
         }
         if (!db.objectStoreNames.contains('progress')) {
           db.createObjectStore('progress', { keyPath: 'bookId' });
+        }
+        if (!db.objectStoreNames.contains('notes')) {
+          db.createObjectStore('notes', { keyPath: 'id' });
         }
       };
       req.onsuccess = () => { this.db = req.result; resolve(); };
@@ -93,6 +103,7 @@ class LexaDB {
   async deleteBook(id: string): Promise<void> {
     await this.tx('books', 'readwrite', store => store.delete(id));
     await this.tx('progress', 'readwrite', store => store.delete(id));
+    await this.tx('notes', 'readwrite', store => store.delete(`${id}-note`));
   }
 
   async saveProgress(prog: DbProgress): Promise<void> {
@@ -101,6 +112,22 @@ class LexaDB {
 
   async getProgress(bookId: string): Promise<DbProgress | undefined> {
     return this.tx('progress', 'readonly', store => store.get(bookId));
+  }
+
+  async saveNote(note: DbNote): Promise<void> {
+    return this.tx('notes', 'readwrite', store => store.put(note));
+  }
+
+  async getNote(id: string): Promise<DbNote | undefined> {
+    return this.tx('notes', 'readonly', store => store.get(id));
+  }
+
+  async getAllNotes(): Promise<DbNote[]> {
+    return this.tx('notes', 'readonly', store => store.getAll());
+  }
+
+  async deleteNote(id: string): Promise<void> {
+    return this.tx('notes', 'readwrite', store => store.delete(id));
   }
 
   private tx<T>(storeName: string, mode: IDBTransactionMode, op: (store: IDBObjectStore) => IDBRequest): Promise<T> {
@@ -230,8 +257,6 @@ const dom = {
   bookName:       byId('bookName'),
   bookPages:      byId('bookPages'),
   closeBookBtn:   byId<HTMLButtonElement>('closeBookBtn'),
-  libHeader:      byId('libHeader'),
-  libList:        byId('libList'),
   thumbHeader:    byId('thumbHeader'),
   thumbList:      byId('thumbList'),
   themeBtn:       byId('themeBtn'),
@@ -269,7 +294,95 @@ const dom = {
   progLbl:        byId('progLbl'),
   progPct:        byId('progPct'),
   swipeHint:      byId('swipeHint'),
+  // New
+  fullScreenBtn:  byId<HTMLButtonElement>('fullScreenBtn'),
+  notePrompt:     byId('notePrompt'),
+  addNoteBtn:     byId<HTMLButtonElement>('addNoteBtn'),
+  navLibList:     byId('navLibList'),
+  navNoteList:    byId('navNoteList'),
+  waterCanvas:    byId<HTMLCanvasElement>('waterCanvas'),
 };
+
+// ── Full Screen ──────────────────────────────────────────
+dom.fullScreenBtn.addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(err => {
+      toast(`Error entering full screen: ${err.message}`, 'err');
+    });
+  } else {
+    document.exitFullscreen();
+  }
+});
+
+document.addEventListener('fullscreenchange', () => {
+  const isFS = !!document.fullscreenElement;
+  dom.fullScreenBtn.classList.toggle('active', isFS);
+  dom.fullScreenBtn.innerHTML = isFS ? 
+    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14v5a2 2 0 002 2h5m11-11V5a2 2 0 00-2-2h-5M4 10V5a2 2 0 012-2h5m11 11v5a2 2 0 01-2 2h-5"/></svg>` :
+    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>`;
+});
+
+// ── Selection Detection (Note Taking) ───────────────────
+let selectedText = '';
+
+function handleSelection() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !dom.textLayer.contains(sel.anchorNode)) {
+    dom.notePrompt.style.display = 'none';
+    selectedText = '';
+    return;
+  }
+  
+  const text = sel.toString().trim();
+  if (text.length < 2) {
+    dom.notePrompt.style.display = 'none';
+    return;
+  }
+  
+  selectedText = text;
+  const range = sel.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
+  const parentRect = dom.viewerWrap.getBoundingClientRect();
+  
+  dom.notePrompt.style.display = 'block';
+  // Position relative to viewerWrap (which is position:relative)
+  const left = rect.left - parentRect.left + dom.viewerWrap.scrollLeft + (rect.width / 2) - (dom.notePrompt.offsetWidth / 2);
+  const top = rect.top - parentRect.top + dom.viewerWrap.scrollTop - 45;
+  
+  dom.notePrompt.style.left = `${left}px`;
+  dom.notePrompt.style.top = `${top}px`;
+}
+
+document.addEventListener('mouseup', () => setTimeout(handleSelection, 10));
+document.addEventListener('touchend', () => setTimeout(handleSelection, 10));
+
+dom.addNoteBtn.addEventListener('click', async () => {
+  if (!currentBookId || !selectedText) return;
+  
+  const noteId = `${currentBookId}-note`;
+  let existing = await localDb.getNote(noteId);
+  
+  if (existing) {
+    existing.content += '\n\n' + selectedText;
+    existing.updatedAt = Date.now();
+    await localDb.saveNote(existing);
+    toast('Added to existing note!', 'ok');
+  } else {
+    await localDb.saveNote({
+      id: noteId,
+      bookId: currentBookId,
+      title: `${bookTitle} Notes`,
+      content: selectedText,
+      updatedAt: Date.now()
+    });
+    toast('New note created!', 'ok');
+  }
+  
+  window.getSelection()?.removeAllRanges();
+  dom.notePrompt.style.display = 'none';
+  refreshLibrary(); // Refresh navbar to show notes
+});
+
 
 // ── State ─────────────────────────────────────────────
 let pdf: PDFDoc | null = null;
@@ -557,24 +670,18 @@ async function saveCurrentProgress(): Promise<void> {
 
 async function refreshLibrary(): Promise<void> {
   const books = await localDb.getAllBooks();
-  if (!books.length) {
-    dom.libHeader.style.display = 'none';
-    dom.libList.innerHTML = '';
-    return;
-  }
-  dom.libHeader.style.display = '';
-  dom.libList.innerHTML = '';
+  const notes = await localDb.getAllNotes();
+
+  // Render Books
+  dom.navLibList.innerHTML = '';
   books.sort((a, b) => b.addedAt - a.addedAt);
   for (const b of books) {
     const item = document.createElement('div');
-    item.className = `lib-item${b.id === currentBookId ? ' active' : ''}`;
+    item.className = `nav-item${b.id === currentBookId ? ' active' : ''}`;
     item.innerHTML = `
-      <img src="${b.thumbnail || ''}" class="lib-thumb" alt="cover"/>
-      <div class="lib-info">
-        <div class="lib-title">${b.title}</div>
-        <div class="lib-meta">${b.totalPages} pages</div>
-      </div>
-      <button class="lib-del" title="Remove from library">✕</button>
+      <img src="${b.thumbnail || ''}" class="nav-thumb" alt="cover"/>
+      <div class="nav-title">${b.title}</div>
+      <button class="lib-del" title="Remove">✕</button>
     `;
     item.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).classList.contains('lib-del')) return;
@@ -597,8 +704,59 @@ async function refreshLibrary(): Promise<void> {
         refreshLibrary();
       }
     });
-    dom.libList.appendChild(item);
+    dom.navLibList.appendChild(item);
   }
+
+  // Render Notes
+  dom.navNoteList.innerHTML = '';
+  notes.sort((a: DbNote, b: DbNote) => b.updatedAt - a.updatedAt);
+  for (const n of notes) {
+    const item = document.createElement('div');
+    item.className = 'nav-item note-item';
+    item.innerHTML = `
+      <div class="nav-icon">📝</div>
+      <div class="nav-title">${n.title}</div>
+      <button class="lib-del" title="Delete">✕</button>
+    `;
+    item.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).classList.contains('lib-del')) return;
+      showNoteContent(n);
+    });
+    item.querySelector('.lib-del')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (confirm(`Delete notes for "${n.title}"?`)) {
+        await localDb.deleteNote(n.id);
+        refreshLibrary();
+      }
+    });
+    dom.navNoteList.appendChild(item);
+  }
+}
+
+function showNoteContent(note: DbNote) {
+  // Simple overlay for viewing notes
+  let overlay = document.querySelector<HTMLDivElement>('.note-view-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'note-view-overlay';
+    overlay.innerHTML = `
+      <div class="note-view-content">
+        <div class="note-view-header">
+          <h2 id="noteViewTitle"></h2>
+          <button id="closeNoteView">✕</button>
+        </div>
+        <div class="note-view-body" id="noteViewBody" style="white-space: pre-wrap;"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#closeNoteView')?.addEventListener('click', () => {
+      overlay!.style.display = 'none';
+    });
+  }
+  
+  (overlay.querySelector('#noteViewTitle') as HTMLElement).textContent = note.title;
+  (overlay.querySelector('#noteViewBody') as HTMLElement).textContent = note.content;
+  overlay.style.display = 'flex';
 }
 
 async function loadFromLibrary(id: string): Promise<void> {
@@ -1024,12 +1182,98 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   }
 });
 
-// ── Init ────────────────────────────────────────────────
-showWelcome();
-enableControls(false);
-dom.zoomVal.textContent = '100%';
+// ── Water Ripple Effect ─────────────────────────────────
+(function initWaterRipple(): void {
+  const canvas = dom.waterCanvas;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
 
-// ── 4D Parallax Effect ──────────────────────────────────
+  let width: number, height: number;
+  let rippleData: Int16Array, lastRippleData: Int16Array;
+  let rippleWidth: number, rippleHeight: number;
+  let size: number;
+
+  let imageData: ImageData;
+
+  function resize() {
+    width = canvas.clientWidth;
+    height = canvas.clientHeight;
+    canvas.width = width;
+    canvas.height = height;
+
+    // Use a smaller internal buffer for better performance
+    rippleWidth = Math.floor(width / 4);
+    rippleHeight = Math.floor(height / 4);
+    size = rippleWidth * rippleHeight;
+    
+    rippleData = new Int16Array(size);
+    lastRippleData = new Int16Array(size);
+    imageData = ctx!.createImageData(width, height);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  function dropAt(x: number, y: number) {
+    const ix = Math.floor((x / width) * rippleWidth);
+    const iy = Math.floor((y / height) * rippleHeight);
+    const index = iy * rippleWidth + ix;
+    if (index >= 0 && index < size) {
+      rippleData[index] = 512;
+    }
+  }
+
+  function update() {
+    for (let i = rippleWidth; i < size - rippleWidth; i++) {
+      rippleData[i] = (
+        (lastRippleData[i - 1] +
+          lastRippleData[i + 1] +
+          lastRippleData[i - rippleWidth] +
+          lastRippleData[i + rippleWidth]) >> 1
+      ) - rippleData[i];
+      rippleData[i] -= rippleData[i] >> 5; // Damping
+    }
+
+    // Swap buffers
+    const temp = lastRippleData;
+    lastRippleData = rippleData;
+    rippleData = temp;
+  }
+
+  function render() {
+    const data = imageData.data;
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const ix = Math.floor((x / width) * rippleWidth);
+        const iy = Math.floor((y / height) * rippleHeight);
+        const val = lastRippleData[iy * rippleWidth + ix];
+        
+        const offset = (y * width + x) * 4;
+        data[offset] = 47;     // R
+        data[offset + 1] = 47; // G
+        data[offset + 2] = 228; // B
+        data[offset + 3] = Math.min(255, Math.max(0, 40 + (val >> 2))); // A
+      }
+    }
+    ctx!.putImageData(imageData, 0, 0);
+  }
+
+  function loop() {
+    update();
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+
+  // Trigger drop every 9 seconds
+  setInterval(() => {
+    dropAt(Math.random() * width, height / 2);
+  }, 9000);
+})();
+
 (function init4D(): void {
   const welcome = byId<HTMLElement>('welcome');
   const target  = welcome.querySelector<HTMLElement>('.parallax-target');
