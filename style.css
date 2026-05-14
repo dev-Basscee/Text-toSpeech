@@ -214,7 +214,7 @@ body{
   background:none;border:none;color:var(--text3);cursor:pointer;
   padding:4px;font-size:14px;opacity:0;transition:opacity var(--trans), color var(--trans);
 }
-.lib-item:hover .lib-del{opacity:1}
+.lib-item:hover .lib-del, .nav-item:hover .lib-del {opacity:1}
 .lib-del:hover{color:#ff4d4d}
 
 /* Thumb list */

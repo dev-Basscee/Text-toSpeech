@@ -761,7 +761,8 @@ function showNoteContent(note: DbNote) {
       <div class="note-view-header">
         <h2 id="noteViewTitle"></h2>
         <div style="display: flex; align-items: center; gap: 10px;">
-          <button id="downloadNoteBtn" class="btn-browse" style="padding: 6px 14px; font-size:12px; margin:0;">Download .txt</button>
+          <button id="downloadNoteBtn" class="btn-browse" style="padding: 6px 14px; font-size:12px; margin:0; background: var(--accent);">Download .txt</button>
+          <button id="deleteNoteBtn" class="btn-browse" style="padding: 6px 14px; font-size:12px; margin:0; background: #ff4d4d;">Delete</button>
           <button id="closeNoteView">✕</button>
         </div>
       </div>
@@ -772,6 +773,14 @@ function showNoteContent(note: DbNote) {
 
   overlay.querySelector('#closeNoteView')?.addEventListener('click', () => {
     overlay!.style.display = 'none';
+  });
+
+  overlay.querySelector('#deleteNoteBtn')?.addEventListener('click', async () => {
+    if (confirm(`Are you sure you want to permanently delete notes for "${note.title}"?`)) {
+      await localDb.deleteNote(note.id);
+      overlay!.style.display = 'none';
+      refreshLibrary();
+    }
   });
 
   overlay.querySelector('#downloadNoteBtn')?.addEventListener('click', () => {
