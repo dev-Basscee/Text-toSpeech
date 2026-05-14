@@ -631,25 +631,39 @@ async function refreshLibrary() {
     }
 }
 function showNoteContent(note) {
-    // Simple overlay for viewing notes
     let overlay = document.querySelector('.note-view-overlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.className = 'note-view-overlay';
-        overlay.innerHTML = `
-      <div class="note-view-content">
-        <div class="note-view-header">
-          <h2 id="noteViewTitle"></h2>
+    if (overlay)
+        overlay.remove();
+    overlay = document.createElement('div');
+    overlay.className = 'note-view-overlay';
+    overlay.innerHTML = `
+    <div class="note-view-content">
+      <div class="note-view-header">
+        <h2 id="noteViewTitle"></h2>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button id="downloadNoteBtn" class="btn-browse" style="padding: 6px 14px; font-size:12px; margin:0;">Download .txt</button>
           <button id="closeNoteView">✕</button>
         </div>
-        <div class="note-view-body" id="noteViewBody" style="white-space: pre-wrap;"></div>
       </div>
-    `;
-        document.body.appendChild(overlay);
-        overlay.querySelector('#closeNoteView')?.addEventListener('click', () => {
-            overlay.style.display = 'none';
-        });
-    }
+      <div class="note-view-body" id="noteViewBody" style="white-space: pre-wrap;"></div>
+    </div>
+  `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#closeNoteView')?.addEventListener('click', () => {
+        overlay.style.display = 'none';
+    });
+    overlay.querySelector('#downloadNoteBtn')?.addEventListener('click', () => {
+        const text = `--- ${note.title} ---\n\n${note.content}`;
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${note.title.replace(/\s+/g, '_')}_Notes.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
     overlay.querySelector('#noteViewTitle').textContent = note.title;
     overlay.querySelector('#noteViewBody').textContent = note.content;
     overlay.style.display = 'flex';
