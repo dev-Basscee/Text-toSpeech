@@ -863,9 +863,10 @@ function buildTextLayer(content, viewport) {
     groups.forEach((g) => {
         if (!g.text.trim())
             return;
-        const div = document.createElement('div');
-        div.className = 'tl-item';
-        div.style.cssText =
+        const span = document.createElement('span');
+        span.className = 'tl-item';
+        span.textContent = g.text;
+        span.style.cssText =
             `left:${g.left.toFixed(1)}px;top:${g.top.toFixed(1)}px;` +
                 `width:${g.width.toFixed(1)}px;height:${g.height.toFixed(1)}px;` +
                 `font-size:${g.fontH.toFixed(1)}px`;
@@ -874,7 +875,7 @@ function buildTextLayer(content, viewport) {
         pageFullText += processed + ' ';
         const endChar = pageFullText.length;
         const idx = items.length;
-        div.addEventListener('mousedown', (e) => {
+        span.addEventListener('mousedown', (e) => {
             // Small delay to see if user is actually selecting
             const startX = e.clientX;
             const startY = e.clientY;
@@ -888,8 +889,8 @@ function buildTextLayer(content, viewport) {
             };
             document.addEventListener('mouseup', mouseUpHandler);
         });
-        items.push({ rawText: g.text, processedText: processed, startChar, endChar, el: div });
-        dom.textLayer.appendChild(div);
+        items.push({ rawText: g.text, processedText: processed, startChar, endChar, el: span });
+        dom.textLayer.appendChild(span);
     });
 }
 // ── TTS Engine ──────────────────────────────────────────

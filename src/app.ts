@@ -9,6 +9,17 @@ declare const pdfjsLib: {
   Util: { transform: (m1: number[], m2: number[]) => number[] };
   GlobalWorkerOptions: { workerSrc: string };
 };
+declare const pdfjsViewer: {
+  TextLayerBuilder: new (options: {
+    textLayerDiv: HTMLElement;
+    pageIndex: number;
+    viewport: PDFViewport;
+  }) => {
+    setTextContent: (content: PDFTextContent) => void;
+    render: () => Promise<void>;
+    cancel: () => void;
+  };
+};
 interface PDFDoc {
   numPages: number;
   getPage: (n: number) => Promise<PDFPage>;
@@ -974,9 +985,10 @@ function buildTextLayer(content: PDFTextContent, viewport: PDFViewport): void {
   groups.forEach((g) => {
     if (!g.text.trim()) return;
 
-    const div = document.createElement('div');
-    div.className = 'tl-item';
-    div.style.cssText =
+    const span = document.createElement('span');
+    span.className = 'tl-item';
+    span.textContent = g.text;
+    span.style.cssText =
       `left:${g.left.toFixed(1)}px;top:${g.top.toFixed(1)}px;` +
       `width:${g.width.toFixed(1)}px;height:${g.height.toFixed(1)}px;` +
       `font-size:${g.fontH.toFixed(1)}px`;
@@ -987,7 +999,7 @@ function buildTextLayer(content: PDFTextContent, viewport: PDFViewport): void {
     const endChar   = pageFullText.length;
 
     const idx = items.length;
-    div.addEventListener('mousedown', (e) => {
+    span.addEventListener('mousedown', (e) => {
       // Small delay to see if user is actually selecting
       const startX = e.clientX;
       const startY = e.clientY;
@@ -1003,8 +1015,8 @@ function buildTextLayer(content: PDFTextContent, viewport: PDFViewport): void {
       };
       document.addEventListener('mouseup', mouseUpHandler);
     });
-    items.push({ rawText: g.text, processedText: processed, startChar, endChar, el: div });
-    dom.textLayer.appendChild(div);
+    items.push({ rawText: g.text, processedText: processed, startChar, endChar, el: span as HTMLDivElement });
+    dom.textLayer.appendChild(span);
   });
 }
 
