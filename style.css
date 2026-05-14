@@ -476,16 +476,28 @@ body{
 .text-layer{
   position:absolute;top:0;left:0;right:0;bottom:0;
   overflow:hidden;line-height:1;
+  z-index: 5;
 }
 .text-layer .tl-item{
-  position:absolute;color:transparent;white-space:pre;
-  cursor:pointer;border-radius:4px;
+  position:absolute;
+  color: rgba(0,0,0,0.01); /* Near invisible but helps browser rendering of selection */
+  white-space:pre;
+  cursor:text;border-radius:4px;
   pointer-events:all;
   transition:background .12s;
   -webkit-tap-highlight-color:transparent;
   user-select: text;
   -webkit-user-select: text;
 }
+.text-layer .tl-item::selection {
+  background: rgba(47, 47, 228, 0.4);
+  color: rgba(0,0,0,0.01);
+}
+.text-layer .tl-item::-moz-selection {
+  background: rgba(47, 47, 228, 0.4);
+  color: rgba(0,0,0,0.01);
+}
+
 .text-layer .tl-item.hl-active{
   background:var(--hl);
   box-shadow:inset 0 0 0 1.5px var(--accent);
