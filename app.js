@@ -6,7 +6,7 @@
 class LexaDB {
     constructor() {
         this.dbName = 'LexaReadDB';
-        this.dbVer = 1;
+        this.dbVer = 2;
         this.db = null;
     }
     async init() {

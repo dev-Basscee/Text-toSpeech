@@ -76,7 +76,7 @@ interface DbNote {
 
 class LexaDB {
   private dbName = 'LexaReadDB';
-  private dbVer = 1;
+  private dbVer = 2;
   private db: IDBDatabase | null = null;
 
   async init(): Promise<void> {
