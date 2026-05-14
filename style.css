@@ -483,6 +483,8 @@ body{
   pointer-events:all;
   transition:background .12s;
   -webkit-tap-highlight-color:transparent;
+  user-select: text;
+  -webkit-user-select: text;
 }
 .text-layer .tl-item.hl-active{
   background:var(--hl);
