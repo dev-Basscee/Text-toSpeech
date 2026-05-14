@@ -367,7 +367,13 @@ function handleSelection() {
 document.addEventListener('mouseup', () => setTimeout(handleSelection, 10));
 document.addEventListener('touchend', () => setTimeout(handleSelection, 10));
 
-dom.addNoteBtn.addEventListener('click', async () => {
+// Prevent mousedown on the prompt from clearing the selection
+dom.notePrompt.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+});
+
+dom.addNoteBtn.addEventListener('click', async (e) => {
+  e.preventDefault();
   if (!currentBookId || !selectedText) return;
   
   const noteId = `${currentBookId}-note`;
