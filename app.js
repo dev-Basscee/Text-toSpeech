@@ -874,7 +874,20 @@ function buildTextLayer(content, viewport) {
         pageFullText += processed + ' ';
         const endChar = pageFullText.length;
         const idx = items.length;
-        div.addEventListener('click', () => jumpToItem(idx));
+        div.addEventListener('mousedown', (e) => {
+            // Small delay to see if user is actually selecting
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const mouseUpHandler = (upE) => {
+                document.removeEventListener('mouseup', mouseUpHandler);
+                const dist = Math.sqrt(Math.pow(upE.clientX - startX, 2) + Math.pow(upE.clientY - startY, 2));
+                // If they didn't move much and didn't select text, treat as click
+                if (dist < 5 && (!window.getSelection() || window.getSelection().isCollapsed)) {
+                    jumpToItem(idx);
+                }
+            };
+            document.addEventListener('mouseup', mouseUpHandler);
+        });
         items.push({ rawText: g.text, processedText: processed, startChar, endChar, el: div });
         dom.textLayer.appendChild(div);
     });

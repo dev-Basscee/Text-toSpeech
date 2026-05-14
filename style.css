@@ -488,6 +488,7 @@ body{
   -webkit-tap-highlight-color:transparent;
   user-select: text;
   -webkit-user-select: text;
+  -webkit-user-drag: none; /* Prevent dragging the element itself */
 }
 .text-layer .tl-item::selection {
   background: rgba(47, 47, 228, 0.4);
