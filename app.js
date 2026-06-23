@@ -527,8 +527,11 @@ dom.dropZone.addEventListener('drop', (e) => {
     if (f)
         openFile(f);
 });
-dom.fileInput.addEventListener('change', () => { const f = dom.fileInput.files?.[0]; if (f)
-    openFile(f); });
+dom.fileInput.addEventListener('change', () => { 
+    const f = dom.fileInput.files?.[0]; 
+    if (f) openFile(f); 
+    dom.fileInput.value = ''; 
+});
 async function generateCover(targetPdf) {
     try {
         const page = await targetPdf.getPage(1);
@@ -1255,7 +1258,7 @@ document.addEventListener('keydown', (e) => {
 // ── Water Ripple Effect ─────────────────────────────────
 (function initWaterRipple() {
     const canvas = dom.waterCanvas;
-    if (!canvas)
+    if (!canvas || !document.body.contains(canvas))
         return;
     const ctx = canvas.getContext('2d');
     if (!ctx)
