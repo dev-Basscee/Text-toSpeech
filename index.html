@@ -1,302 +1,296 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
-  <title>LexaRead — Course Reader</title>
-  <meta name="description" content="Upload your course PDF and have it read aloud page by page with line highlighting."/>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f0f0f">
+  <meta name="description" content="LexaRead - Free, open-source PDF text-to-speech reader with natural voices and offline support">
+  <title>LexaRead - PDF Text-to-Speech Reader</title>
+  
   <!-- PWA -->
-  <link rel="manifest" href="manifest.json"/>
-  <meta name="theme-color" content="#7c5cfc"/>
-  <meta name="mobile-web-app-capable" content="yes"/>
-
-  <!-- iOS PWA -->
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <meta name="apple-mobile-web-app-title" content="LexaRead"/>
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
-  <link rel="apple-touch-startup-image" href="icons/icon-512.png"/>
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png"/>
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png"/>
-
+  <link rel="manifest" href="manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LexaRead">
+  
   <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css"/>
-  <link rel="stylesheet" href="style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- PDF.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
+  
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ══ PWA Install Banner ══ -->
-<div class="install-banner" id="installBanner" style="display:none">
-  <div class="install-banner-inner">
-    <img src="icons/icon-192.png" alt="LexaRead" class="install-icon"/>
-    <div class="install-text">
-      <strong>Install LexaRead</strong>
-      <span>Add to your home screen for the best experience</span>
-    </div>
-    <button class="install-yes" id="installBtn">Install</button>
-    <button class="install-no" id="installDismiss">✕</button>
-  </div>
-</div>
-
-<!-- ══ Update Banner ══ -->
-<div class="update-banner" id="updateBanner" style="display:none">
-  <span>🔄 New version available</span>
-  <button id="updateBtn">Update</button>
-  <button id="updateDismiss">✕</button>
-</div>
-
-<!-- Sidebar backdrop (mobile) -->
-<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-
-<!-- ══════════════ SIDEBAR ══════════════ -->
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-top">
-    <div class="sidebar-header-row">
-      <div class="logo">
-        <span class="logo-icon">📖</span>
-        <span class="logo-text">LexaRead</span>
-      </div>
-      <button class="sidebar-close-btn" id="sidebarCloseBtn" title="Close menu" aria-label="Close menu">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  <!-- Top Navigation Bar -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <button id="sidebar-toggle" class="icon-btn" title="Toggle library">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
         </svg>
       </button>
-    </div>
-
-    <!-- Upload -->
-    <div class="upload-area" id="uploadArea">
-      <div class="drop-zone" id="dropZone">
-        <div class="drop-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-        </div>
-        <p class="drop-title">Drop PDF here</p>
-        <label class="btn-browse" for="fileInput">Browse Files</label>
-        <input type="file" id="fileInput" accept=".pdf" hidden/>
+      <div class="logo-section">
+        <h1 class="logo-text">LexaRead</h1>
       </div>
     </div>
+    
+    <div class="top-bar-center">
+      <input type="text" id="search-input" class="search-box" placeholder="Search books...">
+    </div>
 
-    <!-- Book info -->
-    <div class="book-info" id="bookInfo" style="display:none">
-      <div class="book-icon">📄</div>
-      <div class="book-details">
-        <div class="book-name" id="bookName">—</div>
-        <div class="book-pages" id="bookPages">0 pages</div>
-      </div>
-      <button class="close-book-btn" id="closeBookBtn" title="Close current book" aria-label="Close current book">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    <div class="top-bar-right">
+      <button id="theme-toggle" class="icon-btn" title="Toggle dark/light mode">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
         </svg>
       </button>
-    </div>
-  </div>
-
-  <!-- Page Thumbnails -->
-  <div class="thumb-header" id="thumbHeader" style="display:none">Pages</div>
-  <div class="thumb-list" id="thumbList"></div>
-
-  <!-- Footer -->
-  <div class="sidebar-footer">
-  <button class="theme-btn" id="themeBtn">
-    <span id="themeIcon">🌙</span> <span id="themeLabel">Dark Mode</span>
-  </button>
-  </div>
-  </aside>
-
-  <!-- ══════════════ MAIN ══════════════ -->
-  <main class="main">
-
-  <!-- 3D Library Navbar -->
-  <nav class="lib-navbar" id="libNavbar">
-  <canvas id="waterCanvas"></canvas>
-  <div class="lib-navbar-content">
-    <div class="nav-section">
-      <div class="nav-section-title">Books</div>
-      <div class="nav-list" id="navLibList"></div>
-    </div>
-    <div class="nav-section">
-      <div class="nav-section-title">Notes</div>
-      <div class="nav-list" id="navNoteList"></div>
-    </div>
-  </div>
-  </nav>
-
-  <!-- Topbar -->  <header class="topbar">
-    <div class="topbar-left">
-      <button class="icon-btn hamburger" id="sidebarToggleBtn" title="Toggle sidebar" aria-label="Toggle sidebar">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+      <button id="settings-btn" class="icon-btn" title="Settings">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m2.12 2.12l4.24 4.24M1 12h6m6 0h6m-16.78 7.78l4.24-4.24m2.12-2.12l4.24-4.24M19.78 4.22l-4.24 4.24m-2.12 2.12l-4.24 4.24"></path>
         </svg>
       </button>
-      <!-- Mobile: logo shown in topbar when sidebar is hidden -->
-      <span class="topbar-logo">LexaRead</span>
-    </div>
-
-    <div class="page-nav" id="pageNav" style="display:none">
-      <button class="nav-btn" id="prevPage" title="Previous page" aria-label="Previous page">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <span class="page-indicator">
-        <input type="number" id="pageInput" class="page-input" value="1" min="1"/>
-        <span class="page-sep">/ <span id="totalPages">1</span></span>
-      </span>
-      <button class="nav-btn" id="nextPage" title="Next page" aria-label="Next page">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
-    </div>
-
-    <div class="topbar-right">
-      <select class="voice-sel" id="voiceSel" title="Voice"><option>Loading…</option></select>
-      <div class="zoom-ctrl" id="zoomCtrl" style="display:none">
-        <button class="icon-btn" id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
-        <span class="zoom-val" id="zoomVal">100%</span>
-        <button class="icon-btn" id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
-        <button class="icon-btn fit-btn" id="fitPage" title="Fit to width" aria-label="Fit to width">⊡</button>
-      </div>
-      <button class="icon-btn" id="fullScreenBtn" title="Full screen" aria-label="Toggle full screen">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>
+      <button id="fullscreen-btn" class="icon-btn" title="Fullscreen">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
         </svg>
       </button>
     </div>
   </header>
 
-  <!-- Viewer -->
-  <div class="viewer-wrap" id="viewerWrap">
-    
-    <!-- AI Note Prompt -->
-    <div class="note-prompt" id="notePrompt" style="display:none">
-      <button id="addNoteBtn">📝 Add to Note</button>
-    </div>
-
-    <!-- Swipe hint (mobile only, shown briefly) -->
-    <div class="swipe-hint" id="swipeHint" style="display:none">
-      <span>← Swipe to change pages →</span>
-    </div>
-
-    <!-- Welcome -->
-    <div class="welcome" id="welcome">
-      <div class="cyber-grid"></div>
-      <div class="welcome-bg-effects">
-        <div class="wireframe-container">
-          <div class="cube">
-            <div class="face front"></div>
-            <div class="face back"></div>
-            <div class="face left"></div>
-            <div class="face right"></div>
-            <div class="face top"></div>
-            <div class="face bottom"></div>
-          </div>
-        </div>
+  <!-- Main Container -->
+  <div class="main-container">
+    <!-- Left Sidebar - Library -->
+    <aside id="library-sidebar" class="sidebar sidebar-left">
+      <div class="sidebar-header">
+        <h2>Library</h2>
+        <button id="close-sidebar" class="icon-btn small" title="Close sidebar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
-      <div class="welcome-body parallax-target">
-        <div class="system-status">Preparing Reader... <span id="initPct">0%</span></div>
-        <div class="w-icon">📖</div>
-        <h1>LexaRead</h1>
-        <p>Drop a PDF in the sidebar — LexaRead renders it page by page and reads it aloud with live highlighting.</p>
-        <div class="w-pills">
-          <span>📄 Page-by-Page</span>
-          <span>🔆 Live Highlight</span>
-          <span>🎙️ Natural Voices</span>
-          <span>⚡ Auto Advance</span>
-        </div>
-        <!-- Mobile upload CTA -->
-        <label class="btn-browse mobile-upload-cta" for="fileInput">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+
+      <div class="upload-section">
+        <label for="file-input" class="upload-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
           Upload PDF
         </label>
+        <input type="file" id="file-input" accept=".pdf" style="display: none;">
       </div>
-    </div>
 
-    <!-- Loading -->
-    <div class="loader" id="loader" style="display:none">
-      <div class="spinner"></div>
-      <p id="loaderMsg">Loading PDF…</p>
-    </div>
-
-    <!-- PDF Page viewer -->
-    <div class="page-container" id="pageContainer" style="display:none">
-      <div class="page-wrap" id="pageWrap">
-        <canvas id="pdfCanvas"></canvas>
-        <div class="text-layer" id="textLayer"></div>
+      <div class="books-list">
+        <div id="books-container">
+          <div class="empty-state">
+            <p>No books yet</p>
+            <p class="small-text">Upload a PDF to get started</p>
+          </div>
+        </div>
       </div>
-    </div>
 
+      <div class="sidebar-footer">
+        <small>v1.0 • Open Source</small>
+      </div>
+    </aside>
+
+    <!-- Center - PDF Viewer -->
+    <main class="main-content">
+      <div id="pdf-container" class="pdf-container">
+        <canvas id="pdf-canvas"></canvas>
+        <div id="text-layer" class="text-layer"></div>
+        <div id="empty-viewer" class="empty-viewer">
+          <div class="empty-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="13" x2="12" y2="17"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+          </div>
+          <h2>Select a PDF to Start</h2>
+          <p>Upload a PDF from the library or click to open an existing document</p>
+        </div>
+      </div>
+
+      <div class="pdf-status">
+        <span id="current-page">Page 1</span>
+        <div class="progress-bar">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <span id="total-pages">of 0</span>
+      </div>
+    </main>
+
+    <!-- Right Sidebar - Controls -->
+    <aside id="controls-sidebar" class="sidebar sidebar-right">
+      <div class="sidebar-header">
+        <h2>Controls</h2>
+        <button id="close-controls" class="icon-btn small" title="Close controls">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Playback Controls -->
+      <div class="control-section">
+        <h3>Playback</h3>
+        <div class="playback-buttons">
+          <button id="prev-btn" class="control-btn" title="Previous page">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+          <button id="play-btn" class="control-btn play-btn-large">
+            <svg class="play-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <svg class="pause-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+          </button>
+          <button id="next-btn" class="control-btn" title="Next page">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Voice Settings -->
+      <div class="control-section">
+        <h3>Voice</h3>
+        <select id="voice-select" class="control-input">
+          <option>Loading voices...</option>
+        </select>
+      </div>
+
+      <!-- Speed Control -->
+      <div class="control-section">
+        <h3>Speed</h3>
+        <div class="slider-container">
+          <input type="range" id="speed-slider" class="control-slider" min="0.5" max="2" step="0.1" value="1">
+          <span id="speed-display" class="value-display">1.0x</span>
+        </div>
+      </div>
+
+      <!-- Pitch Control -->
+      <div class="control-section">
+        <h3>Pitch</h3>
+        <div class="slider-container">
+          <input type="range" id="pitch-slider" class="control-slider" min="0.5" max="2" step="0.1" value="1">
+          <span id="pitch-display" class="value-display">1.0</span>
+        </div>
+      </div>
+
+      <!-- Navigation Controls -->
+      <div class="control-section">
+        <h3>Navigation</h3>
+        <div class="page-input-container">
+          <input type="number" id="page-input" class="control-input" min="1" placeholder="Go to page...">
+          <button id="go-page-btn" class="control-btn">Go</button>
+        </div>
+      </div>
+
+      <!-- Zoom Control -->
+      <div class="control-section">
+        <h3>Zoom</h3>
+        <div class="zoom-buttons">
+          <button id="zoom-out-btn" class="control-btn">−</button>
+          <span id="zoom-level" class="value-display">100%</span>
+          <button id="zoom-in-btn" class="control-btn">+</button>
+        </div>
+      </div>
+
+      <!-- Additional Options -->
+      <div class="control-section">
+        <h3>Options</h3>
+        <div class="toggle-item">
+          <label for="auto-advance">
+            <input type="checkbox" id="auto-advance">
+            <span>Auto-advance</span>
+          </label>
+        </div>
+        <div class="toggle-item">
+          <label for="highlight-toggle">
+            <input type="checkbox" id="highlight-toggle" checked>
+            <span>Highlight text</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Notes Section -->
+      <div class="control-section">
+        <h3>Notes</h3>
+        <textarea id="notes-input" class="control-input" placeholder="Add notes..." rows="4"></textarea>
+        <button id="save-notes-btn" class="control-btn full-width">Save Notes</button>
+      </div>
+
+      <!-- Reading Stats -->
+      <div class="control-section">
+        <h3>Stats</h3>
+        <div class="stat-item">
+          <span class="stat-label">Time spent:</span>
+          <span id="time-spent" class="stat-value">0m</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Words read:</span>
+          <span id="words-read" class="stat-value">0</span>
+        </div>
+      </div>
+    </aside>
   </div>
 
-  <!-- ══════════ PLAYER BAR ══════════ -->
-  <div class="player" id="player">
-
-    <!-- Progress row -->
-    <div class="progress-row">
-      <span class="prog-lbl" id="progLbl">Page 0 of 0</span>
-      <div class="prog-track">
-        <div class="prog-fill" id="progFill" style="width:0%"></div>
-      </div>
-      <span class="prog-pct" id="progPct">0%</span>
-    </div>
-
-    <!-- Main controls row -->
-    <div class="controls-row">
-      <button class="ctrl-btn" id="skipBack" disabled title="Back" aria-label="Skip back">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+  <!-- Bottom Player Bar (Mobile) -->
+  <div id="mobile-player" class="mobile-player">
+    <div class="player-content">
+      <button id="mobile-play-btn" class="player-btn">
+        <svg class="play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <svg class="pause-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+          <rect x="6" y="4" width="4" height="16"></rect>
+          <rect x="14" y="4" width="4" height="16"></rect>
         </svg>
       </button>
-
-      <button class="play-btn" id="playBtn" disabled aria-label="Play or pause">
-        <svg class="ico-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        <svg class="ico-pause" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-      </button>
-
-      <button class="ctrl-btn" id="stopBtn" disabled title="Stop" aria-label="Stop reading">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-      </button>
-
-      <button class="ctrl-btn" id="skipFwd" disabled title="Forward" aria-label="Skip forward">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-4.5"/>
-        </svg>
-      </button>
-
-      <div class="speed-box">
-        <button class="spd-btn" id="spdDn" aria-label="Decrease speed">−</button>
-        <span class="spd-val" id="spdVal">1.0×</span>
-        <button class="spd-btn" id="spdUp" aria-label="Increase speed">+</button>
+      <div class="player-progress">
+        <span id="mobile-page" class="small-text">Page 1</span>
+        <div class="mini-progress">
+          <div id="mini-progress-fill"></div>
+        </div>
       </div>
-
-      <button class="auto-btn" id="autoBtn" data-on="true">Auto ▶</button>
     </div>
-
-    <!-- Secondary row (pitch) -->
-    <div class="secondary-row">
-      <label class="pitch-box" title="Pitch">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        <input type="range" id="pitchSlider" min="0.5" max="2" step="0.1" value="1" class="pitch-range"/>
-      </label>
-    </div>
-
   </div>
-</main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>
-  if (typeof pdfjsLib !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  }
-</script>
-<script src="app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+  <script src="dist/app.js"></script>
 </body>
 </html>
