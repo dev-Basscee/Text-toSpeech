@@ -155,69 +155,59 @@ function byId(id) {
 }
 const dom = {
     sidebar: byId('library-sidebar'),
-    controlsSidebar: byId('controls-sidebar'),
-    backdrop: document.querySelector('.main-container') || document.createElement('div'),
+    backdrop: byId('main-container'),
     sidebarToggle: byId('sidebar-toggle'),
     sidebarCloseBtn: byId('close-sidebar'),
-    controlsToggleBtn: byId('settings-btn'),
-    controlsCloseBtn: byId('close-controls'),
-    dropZone: document.querySelector('.upload-btn') || document.createElement('div'),
+    dropZone: byId('file-input'),
     fileInput: byId('file-input'),
-    bookInfo: document.createElement('div'),
-    bookName: document.querySelector('.logo-text') || document.createElement('div'),
-    bookPages: document.createElement('div'),
-    closeBookBtn: document.createElement('div'),
-    thumbHeader: document.createElement('div'),
-    thumbList: document.createElement('div'),
+    bookInfo: byId('books-container'),
+    bookName: byId('current-page'),
+    bookPages: byId('total-pages'),
+    closeBookBtn: byId('close-sidebar'),
+    thumbHeader: byId('books-container'),
+    thumbList: byId('books-container'),
     themeBtn: byId('theme-toggle'),
     themeIcon: byId('theme-toggle'),
-    themeLabel: document.createElement('div'),
-    pageNav: document.createElement('div'),
+    themeLabel: byId('theme-toggle'),
+    pageNav: byId('pdf-container'),
     prevPage: byId('prev-btn'),
     nextPage: byId('next-btn'),
     pageInput: byId('page-input'),
-    goPageBtn: byId('go-page-btn'),
     totalPages: byId('total-pages'),
-    zoomCtrl: document.createElement('div'),
+    zoomCtrl: byId('controls-sidebar'),
     zoomIn: byId('zoom-in-btn'),
     zoomOut: byId('zoom-out-btn'),
     zoomVal: byId('zoom-level'),
     fitPage: byId('fullscreen-btn'),
     welcome: byId('empty-viewer'),
-    loader: document.createElement('div'),
-    loaderMsg: document.createElement('div'),
+    loader: byId('pdf-container'),
+    loaderMsg: byId('pdf-container'),
     pageContainer: byId('pdf-container'),
-    pageWrap: document.querySelector('.main-content') || document.createElement('div'),
+    pageWrap: byId('pdf-container'),
     pdfCanvas: byId('pdf-canvas'),
     textLayer: byId('text-layer'),
-    viewerWrap: document.querySelector('.main-content') || document.createElement('div'),
+    viewerWrap: byId('main-content'),
     voiceSel: byId('voice-select'),
     playBtn: byId('play-btn'),
-    stopBtn: document.createElement('div'),
-    skipBack: document.createElement('div'),
-    skipFwd: document.createElement('div'),
-    speedSlider: byId('speed-slider'),
+    stopBtn: byId('play-btn'),
+    skipBack: byId('prev-btn'),
+    skipFwd: byId('next-btn'),
+    spdDn: byId('speed-slider'),
+    spdUp: byId('speed-slider'),
     spdVal: byId('speed-display'),
     pitchSlider: byId('pitch-slider'),
-    pitchVal: byId('pitch-display'),
     autoBtn: byId('auto-advance'),
     progFill: byId('progress-fill'),
     progLbl: byId('current-page'),
-    progPct: document.createElement('div'),
-    swipeHint: document.createElement('div'),
+    progPct: byId('total-pages'),
+    swipeHint: byId('main-content'),
+    // New
     fullScreenBtn: byId('fullscreen-btn'),
-    notePrompt: document.createElement('div'),
-    addNoteBtn: document.createElement('div'),
-    notesInput: byId('notes-input'),
-    saveNotesBtn: byId('save-notes-btn'),
-    timeSpent: byId('time-spent'),
-    wordsRead: byId('words-read'),
-    mobilePlayBtn: byId('mobile-play-btn'),
-    mobilePage: byId('mobile-page'),
-    mobileProgFill: byId('mini-progress-fill'),
-    navLibList: byId('books-container'),
-    navNoteList: document.createElement('div'),
-    waterCanvas: document.createElement('canvas'),
+    notePrompt: byId('notePrompt'),
+    addNoteBtn: byId('addNoteBtn'),
+    navLibList: byId('navLibList'),
+    navNoteList: byId('navNoteList'),
+    waterCanvas: byId('waterCanvas'),
 };
 // ── Full Screen ──────────────────────────────────────────
 dom.fullScreenBtn.addEventListener('click', () => {
@@ -360,18 +350,12 @@ function toast(msg, type = 'info', ms = 2600) {
 // ── Theme ─────────────────────────────────────────────
 function applyTheme(t) {
     document.body.classList.toggle('dark', t === 'dark');
-    if (dom.themeIcon && dom.themeIcon.tagName !== 'BUTTON') {
-        dom.themeIcon.textContent = t === 'dark' ? '🌙' : '☀️';
-    }
-    if (dom.themeLabel && dom.themeLabel.tagName !== 'BUTTON') {
-        dom.themeLabel.textContent = t === 'dark' ? 'Dark Mode' : 'Light Mode';
-    }
+    dom.themeIcon.textContent = t === 'dark' ? '🌙' : '☀️';
+    dom.themeLabel.textContent = t === 'dark' ? 'Dark Mode' : 'Light Mode';
     localStorage.setItem('lexa-theme', t);
 }
 applyTheme(localStorage.getItem('lexa-theme') ?? 'light');
-if (dom.themeBtn) {
-    dom.themeBtn.addEventListener('click', () => applyTheme(document.body.classList.contains('dark') ? 'light' : 'dark'));
-}
+dom.themeBtn.addEventListener('click', () => applyTheme(document.body.classList.contains('dark') ? 'light' : 'dark'));
 // ── Sidebar ───────────────────────────────────────────
 const DESKTOP_BP = 900;
 function openSidebar() {
@@ -398,55 +382,6 @@ if (window.innerWidth >= DESKTOP_BP)
 dom.sidebarToggle.addEventListener('click', toggleSidebar);
 dom.sidebarCloseBtn.addEventListener('click', closeSidebar);
 dom.backdrop.addEventListener('click', closeSidebar);
-
-if (dom.controlsToggleBtn) {
-    dom.controlsToggleBtn.addEventListener('click', () => {
-        dom.controlsSidebar.classList.toggle('open');
-    });
-}
-if (dom.controlsCloseBtn) {
-    dom.controlsCloseBtn.addEventListener('click', () => {
-        dom.controlsSidebar.classList.remove('open');
-    });
-}
-
-// Stats tracking
-let sessionStartTime = Date.now();
-setInterval(() => {
-    if (currentBookId && isSpeaking && !isPaused) {
-        const elapsedMin = Math.floor((Date.now() - sessionStartTime) / 60000);
-        if (dom.timeSpent) dom.timeSpent.textContent = `${elapsedMin}m`;
-    }
-}, 60000);
-
-if (dom.saveNotesBtn) {
-    dom.saveNotesBtn.addEventListener('click', async () => {
-        if (!currentBookId) {
-            toast('Open a book to take notes.', 'err');
-            return;
-        }
-        const noteId = `${currentBookId}-note`;
-        const text = dom.notesInput.value.trim();
-        if (!text) return;
-        let existing = await localDb.getNote(noteId);
-        if (existing) {
-            existing.content = text;
-            existing.updatedAt = Date.now();
-            await localDb.saveNote(existing);
-            toast('Notes saved!', 'ok');
-        } else {
-            await localDb.saveNote({
-                id: noteId,
-                bookId: currentBookId,
-                title: `${bookTitle} Notes`,
-                content: text,
-                updatedAt: Date.now()
-            });
-            toast('Notes created!', 'ok');
-        }
-        refreshLibrary();
-    });
-}
 // Close sidebar when a thumbnail is tapped on mobile
 dom.thumbList.addEventListener('click', () => {
     if (window.innerWidth < DESKTOP_BP)
@@ -527,11 +462,8 @@ dom.dropZone.addEventListener('drop', (e) => {
     if (f)
         openFile(f);
 });
-dom.fileInput.addEventListener('change', () => { 
-    const f = dom.fileInput.files?.[0]; 
-    if (f) openFile(f); 
-    dom.fileInput.value = ''; 
-});
+dom.fileInput.addEventListener('change', () => { const f = dom.fileInput.files?.[0]; if (f)
+    openFile(f); });
 async function generateCover(targetPdf) {
     try {
         const page = await targetPdf.getPage(1);
@@ -1096,16 +1028,6 @@ dom.playBtn.addEventListener('click', () => {
     else
         resumeTTS();
 });
-if (dom.mobilePlayBtn) {
-    dom.mobilePlayBtn.addEventListener('click', () => {
-        if (!isSpeaking && !isPaused)
-            startTTS();
-        else if (isSpeaking && !isPaused)
-            pauseTTS();
-        else
-            resumeTTS();
-    });
-}
 dom.stopBtn.addEventListener('click', () => {
     stopTTS();
     // Reset item positions for fresh read
@@ -1116,52 +1038,26 @@ dom.stopBtn.addEventListener('click', () => {
 dom.skipBack.addEventListener('click', () => jumpToItem(Math.max(0, currentItemIdx - 6)));
 dom.skipFwd.addEventListener('click', () => jumpToItem(Math.min(items.length - 1, Math.max(0, currentItemIdx + 6))));
 function setPlayState(playing) {
-    const pIcon = dom.playBtn ? dom.playBtn.querySelector('.play-icon') : null;
-    const paIcon = dom.playBtn ? dom.playBtn.querySelector('.pause-icon') : null;
-    if (pIcon) pIcon.style.display = playing ? 'none' : '';
-    if (paIcon) paIcon.style.display = playing ? '' : 'none';
-
-    if (dom.mobilePlayBtn) {
-        const mpIcon = dom.mobilePlayBtn.querySelector('.play-icon');
-        const mpaIcon = dom.mobilePlayBtn.querySelector('.pause-icon');
-        if (mpIcon) mpIcon.style.display = playing ? 'none' : '';
-        if (mpaIcon) mpaIcon.style.display = playing ? '' : 'none';
-    }
+    dom.playBtn.querySelector('.play-icon').style.display = playing ? 'none' : '';
+    dom.playBtn.querySelector('.pause-icon').style.display = playing ? '' : 'none';
 }
 // ── Speed & Pitch ───────────────────────────────────────
 function setRate(r) {
-    rate = Math.max(0.5, Math.min(2, Math.round(r * 10) / 10));
-    if (dom.spdVal) dom.spdVal.textContent = rate.toFixed(1) + '×';
-    if (dom.speedSlider) dom.speedSlider.value = rate;
+    rate = Math.max(0.25, Math.min(4, Math.round(r * 100) / 100));
+    dom.spdVal.textContent = rate.toFixed(1) + '×';
     if (isSpeaking)
         restartTTS();
 }
-if (dom.speedSlider) {
-    dom.speedSlider.addEventListener('input', () => setRate(parseFloat(dom.speedSlider.value)));
-}
-if (dom.pitchSlider) {
-    dom.pitchSlider.addEventListener('input', () => {
-        pitch = parseFloat(dom.pitchSlider.value);
-        if (dom.pitchVal) dom.pitchVal.textContent = pitch.toFixed(1);
-        if (isSpeaking) restartTTS();
-    });
-}
+dom.spdDn.addEventListener('click', () => setRate(rate - 0.25));
+dom.spdUp.addEventListener('click', () => setRate(rate + 0.25));
+dom.pitchSlider.addEventListener('input', () => { pitch = parseFloat(dom.pitchSlider.value); if (isSpeaking)
+    restartTTS(); });
 // Auto-advance
-if (dom.autoBtn) {
-    if (dom.autoBtn.type === 'checkbox') {
-        dom.autoBtn.checked = autoAdvance;
-        dom.autoBtn.addEventListener('change', () => {
-            autoAdvance = dom.autoBtn.checked;
-            toast(`Auto-advance ${autoAdvance ? 'ON' : 'OFF'}`, 'info', 1400);
-        });
-    } else {
-        dom.autoBtn.addEventListener('click', () => {
-            autoAdvance = !autoAdvance;
-            dom.autoBtn.dataset['on'] = String(autoAdvance);
-            toast(`Auto-advance ${autoAdvance ? 'ON' : 'OFF'}`, 'info', 1400);
-        });
-    }
-}
+dom.autoBtn.addEventListener('click', () => {
+    autoAdvance = !autoAdvance;
+    dom.autoBtn.dataset['on'] = String(autoAdvance);
+    toast(`Auto-advance ${autoAdvance ? 'ON' : 'OFF'}`, 'info', 1400);
+});
 // ── Page navigation ─────────────────────────────────────
 async function goToPage(p) {
     if (!pdf || p === currentPage)
@@ -1179,13 +1075,6 @@ dom.pageInput.addEventListener('change', () => {
     if (!isNaN(p))
         goToPage(Math.max(1, Math.min(p, totalPages)));
 });
-if (dom.goPageBtn) {
-    dom.goPageBtn.addEventListener('click', () => {
-        const p = parseInt(dom.pageInput.value, 10);
-        if (!isNaN(p))
-            goToPage(Math.max(1, Math.min(p, totalPages)));
-    });
-}
 // ── Zoom ────────────────────────────────────────────────
 function setScale(s) {
     scale = Math.max(0.5, Math.min(3.5, Math.round(s * 10) / 10));
@@ -1208,11 +1097,9 @@ dom.fitPage.addEventListener('click', () => {
 // ── Progress ────────────────────────────────────────────
 function updateProgress() {
     const pct = totalPages > 0 ? ((currentPage - 1) / totalPages) * 100 : 0;
-    if (dom.progFill) dom.progFill.style.width = pct + '%';
-    if (dom.progLbl) dom.progLbl.textContent = `Page ${currentPage} of ${totalPages}`;
-    if (dom.progPct) dom.progPct.textContent = Math.round(pct) + '%';
-    if (dom.mobilePage) dom.mobilePage.textContent = `Page ${currentPage}`;
-    if (dom.mobileProgFill) dom.mobileProgFill.style.width = pct + '%';
+    dom.progFill.style.width = pct + '%';
+    dom.progLbl.textContent = `Page ${currentPage} of ${totalPages}`;
+    dom.progPct.textContent = Math.round(pct) + '%';
 }
 // ── UI helpers ──────────────────────────────────────────
 function showWelcome() { dom.welcome.style.display = ''; dom.loader.style.display = 'none'; dom.pageContainer.style.display = 'none'; }
@@ -1258,7 +1145,7 @@ document.addEventListener('keydown', (e) => {
 // ── Water Ripple Effect ─────────────────────────────────
 (function initWaterRipple() {
     const canvas = dom.waterCanvas;
-    if (!canvas || !document.body.contains(canvas))
+    if (!canvas)
         return;
     const ctx = canvas.getContext('2d');
     if (!ctx)
@@ -1472,15 +1359,3 @@ window.addEventListener('appinstalled', () => {
     document.getElementById('installBanner').style.display = 'none';
     toast('LexaRead added to home screen! 🎉', 'ok', 3000);
 });
-
-// ── Search functionality ─────────────────────────────
-const searchInput = document.getElementById('search-input');
-if (searchInput && dom.navLibList) {
-    searchInput.addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase();
-        dom.navLibList.querySelectorAll('.nav-item').forEach(item => {
-            const title = item.querySelector('.nav-title')?.textContent.toLowerCase() || '';
-            item.style.display = title.includes(q) ? '' : 'none';
-        });
-    });
-}
