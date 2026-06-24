@@ -38,6 +38,7 @@
       </button>
       <div class="logo-section">
         <h1 class="logo-text">LexaRead</h1>
+        <span id="book-name-display" style="margin-left: 1rem; font-weight: 500; font-size: 1.1rem; opacity: 0.8;"></span>
       </div>
     </div>
     
@@ -116,8 +117,14 @@
     <!-- Center - PDF Viewer -->
     <main class="main-content">
       <div id="pdf-container" class="pdf-container">
-        <canvas id="pdf-canvas"></canvas>
-        <div id="text-layer" class="text-layer"></div>
+        <div id="loader" style="display: none; height: 100%; align-items: center; justify-content: center; flex-direction: column;">
+          <div class="spinner"></div>
+          <h2 id="loader-msg">Loading...</h2>
+        </div>
+        <div id="page-wrap" style="position: relative;">
+          <canvas id="pdf-canvas"></canvas>
+          <div id="text-layer" class="text-layer"></div>
+        </div>
         <div id="empty-viewer" class="empty-viewer">
           <div class="empty-icon">
             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -130,6 +137,9 @@
           <h2>Select a PDF to Start</h2>
           <p>Upload a PDF from the library or click to open an existing document</p>
         </div>
+      </div>
+      <div id="notePrompt" style="display: none; position: absolute; z-index: 1000; background: #333; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer;">
+        <span id="addNoteBtn">Highlight</span>
       </div>
 
       <div class="pdf-status">
